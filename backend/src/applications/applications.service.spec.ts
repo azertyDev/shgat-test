@@ -73,7 +73,12 @@ function setup(overrides: Partial<typeof application> = {}) {
     deleteFeature: vi.fn(async () => undefined),
   };
   const storage = {
-    save: vi.fn(async () => undefined),
+    // multer stores uploads on disk; fake uploads carry their signature in the path name
+    readHead: vi.fn(async (path: string) =>
+      Buffer.from(path.startsWith('html') ? '<html>' : '%PDF-1.7'),
+    ),
+    moveIn: vi.fn(async () => undefined),
+    removeTemp: vi.fn(async () => undefined),
     remove: vi.fn(async () => undefined),
     exists: vi.fn(async () => false),
     absolutePath: (p: string) => `/uploads/${p}`,
@@ -227,7 +232,7 @@ describe('ApplicationsService.returnToApplicant', () => {
 
 describe('ApplicationsService.create validation', () => {
   const pdf = (size = 100) =>
-    [{ size, buffer: Buffer.from('%PDF-1.7'), originalname: 'a.pdf' }] as any;
+    [{ size, path: `tmp/${Math.random()}`, originalname: 'a.pdf' }] as any;
   const files = {
     asosiy_chizma: pdf(),
     tushuntirish_xati: pdf(),
@@ -337,9 +342,7 @@ describe('ApplicationsService.getFile', () => {
 
 describe('ApplicationsService file lifecycle', () => {
   const pdf = () =>
-    [
-      { size: 10, buffer: Buffer.from('%PDF-1.7'), originalname: 'a.pdf' },
-    ] as any;
+    [{ size: 10, path: `tmp/${Math.random()}`, originalname: 'a.pdf' }] as any;
   const payload = JSON.stringify({
     hujjat_nomi: 'Andijon shahri bosh rejasi',
     hujjat_turi: 'БР',
@@ -354,7 +357,7 @@ describe('ApplicationsService file lifecycle', () => {
     tasdiqlovchi_hujjat: pdf(),
   });
   const savedPaths = (storage: ReturnType<typeof setup>['storage']) =>
-    storage.save.mock.calls.map((c) => (c as unknown as [string])[0]);
+    storage.moveIn.mock.calls.map((c) => (c as unknown as [string, string])[1]);
 
   it('create: writes files under unique names before the transaction and keeps them on success', async () => {
     const { service, prisma, storage } = setup();
@@ -394,7 +397,7 @@ describe('ApplicationsService file lifecycle', () => {
 
   it('create: removes already written files when a later write fails', async () => {
     const { service, storage, prisma } = setup();
-    storage.save
+    storage.moveIn
       .mockResolvedValueOnce(undefined)
       .mockRejectedValueOnce(new Error('ENOSPC'));
 
@@ -424,5 +427,43 @@ describe('ApplicationsService file lifecycle', () => {
     ).toBe(409);
     expect(storage.remove).toHaveBeenCalledWith(savedPaths(storage)[0]);
     expect(storage.remove).not.toHaveBeenCalledWith('main_drawing-old.pdf');
+  });
+});
+
+describe('ApplicationsService temporary uploads', () => {
+  const upload = (path: string, size = 10) =>
+    [{ size, path, originalname: 'a.pdf' }] as any;
+
+  it('removes every temporary file when validation fails', async () => {
+    const { service, storage } = setup();
+    const files = {
+      asosiy_chizma: upload('tmp/1'),
+      tushuntirish_xati: upload('tmp/2', 25 * 1024 * 1024),
+      tasdiqlovchi_hujjat: upload('html-3'),
+    };
+    const error = await httpError(service.create('{}', files));
+    expect(error.status).toBe(422);
+    expect(error.body.maydonlar).toMatchObject({
+      tushuntirish_xati: 'Fayl hajmi 20 MB dan oshmasin',
+      tasdiqlovchi_hujjat: 'Faqat PDF, JPG yoki PNG fayl',
+    });
+    expect(storage.moveIn).not.toHaveBeenCalled();
+    expect(
+      storage.removeTemp.mock.calls
+        .map((c) => (c as unknown as [string])[0])
+        .sort(),
+    ).toEqual(['html-3', 'tmp/1', 'tmp/2']);
+  });
+
+  it('removes the temporary file when resubmitting in the wrong status', async () => {
+    const { service, storage } = setup(); // status SUBMITTED, resubmit needs RETURNED
+    expect(
+      (
+        await httpError(
+          service.resubmit(1, '{}', { asosiy_chizma: upload('tmp/9') }),
+        )
+      ).status,
+    ).toBe(409);
+    expect(storage.removeTemp).toHaveBeenCalledWith('tmp/9');
   });
 });

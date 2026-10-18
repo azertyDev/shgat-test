@@ -40,6 +40,8 @@ export type UploadedFileMap = Partial<
 >;
 type Tx = Prisma.TransactionClient;
 
+type FileHeads = Partial<Record<UploadField, Buffer>>;
+
 interface StoredUpload {
   kind: FileKind;
   storagePath: string;
@@ -72,21 +74,26 @@ export class ApplicationsService {
   }
 
   async create(rawData: unknown, files: UploadedFileMap) {
-    const input = this.validate(rawData, files, true);
-    // disk first, then a short database-only transaction; on failure nothing is left behind
-    const uploads = await this.writeUploads(files);
     try {
-      const application = await this.prisma.$transaction(async (tx) => {
-        const created = await tx.application.create({
-          data: toColumns(input),
+      const heads = await this.readHeads(files);
+      const input = this.validate(rawData, files, heads, true);
+      // disk first, then a short database-only transaction; on failure nothing is left behind
+      const uploads = await this.storeUploads(files, heads);
+      try {
+        const application = await this.prisma.$transaction(async (tx) => {
+          const created = await tx.application.create({
+            data: toColumns(input),
+          });
+          await this.saveFileRows(tx, created.id, uploads);
+          return created;
         });
-        await this.saveFileRows(tx, created.id, uploads);
-        return created;
-      });
-      return toStatusDto(application.id, application.status);
-    } catch (e) {
-      await this.discardFiles(uploads.map((u) => u.storagePath));
-      throw e;
+        return toStatusDto(application.id, application.status);
+      } catch (e) {
+        await this.discardFiles(uploads.map((u) => u.storagePath));
+        throw e;
+      }
+    } finally {
+      await this.removeTempFiles(files);
     }
   }
 
@@ -142,13 +149,26 @@ export class ApplicationsService {
 
   /** Resubmits a returned application. Files that are not sent again are kept. */
   async resubmit(id: number, rawData: unknown, files: UploadedFileMap) {
+    try {
+      return await this.resubmitWithUploads(id, rawData, files);
+    } finally {
+      await this.removeTempFiles(files);
+    }
+  }
+
+  private async resubmitWithUploads(
+    id: number,
+    rawData: unknown,
+    files: UploadedFileMap,
+  ) {
     await this.requireStatus(
       id,
       'RETURNED',
       'Faqat qaytarilgan arizani tuzatib qayta yuborish mumkin',
     );
-    const input = this.validate(rawData, files, false);
-    const uploads = await this.writeUploads(files);
+    const heads = await this.readHeads(files);
+    const input = this.validate(rawData, files, heads, false);
+    const uploads = await this.storeUploads(files, heads);
     let replaced: string[];
     try {
       replaced = await this.prisma.$transaction(async (tx) => {
@@ -314,9 +334,30 @@ export class ApplicationsService {
     return application;
   }
 
+  /** Multer writes uploads to disk; the signature check needs their first bytes. */
+  private async readHeads(files: UploadedFileMap): Promise<FileHeads> {
+    const heads: FileHeads = {};
+    for (const field of UPLOAD_FIELDS) {
+      const upload = files[field]?.[0];
+      if (upload) heads[field] = await this.storage.readHead(upload.path);
+    }
+    return heads;
+  }
+
+  /** Temporary uploads that were not moved into storage (validation errors, conflicts, failures). */
+  private async removeTempFiles(files: UploadedFileMap) {
+    const temp = UPLOAD_FIELDS.flatMap(
+      (f) => files[f]?.map((u) => u.path) ?? [],
+    );
+    await Promise.all(
+      temp.map((p) => this.storage.removeTemp(p).catch(() => undefined)),
+    );
+  }
+
   private validate(
     rawData: unknown,
     files: UploadedFileMap,
+    heads: FileHeads,
     filesRequired: boolean,
   ): ApplicationInput {
     const errors: Record<string, string> = {};
@@ -333,7 +374,11 @@ export class ApplicationsService {
       errors.data = "data maydoni to'g'ri JSON bo'lishi kerak";
     }
     for (const field of UPLOAD_FIELDS) {
-      const error = checkUploadedFile(files[field]?.[0], filesRequired);
+      const upload = files[field]?.[0];
+      const error = checkUploadedFile(
+        upload && { size: upload.size, head: heads[field] ?? Buffer.alloc(0) },
+        filesRequired,
+      );
       if (error) errors[field] = error;
     }
     if (!input || Object.keys(errors).length)
@@ -341,22 +386,24 @@ export class ApplicationsService {
     return input;
   }
 
-  /** The stored name never comes from the user: {applicationId}/{kind}.{ext} */
   /**
-   * Writes the uploads before any database work, each under a fresh unique name, so a stored file is
-   * never overwritten. If one write fails, the files written so far are removed.
+   * Moves the uploads into storage before any database work, each under a fresh unique name, so a stored
+   * file is never overwritten. If one move fails, the files stored so far are removed.
    */
-  private async writeUploads(files: UploadedFileMap): Promise<StoredUpload[]> {
+  private async storeUploads(
+    files: UploadedFileMap,
+    heads: FileHeads,
+  ): Promise<StoredUpload[]> {
     const written: StoredUpload[] = [];
     try {
       for (const field of UPLOAD_FIELDS) {
         const upload = files[field]?.[0];
         if (!upload) continue;
         const kind = FIELD_TO_FILE_KIND[field];
-        const { ext, mime } = detectFileType(upload.buffer)!;
+        const { ext, mime } = detectFileType(heads[field]!)!;
         // the stored name never comes from the user
         const storagePath = `${kind.toLowerCase()}-${randomUUID()}.${ext}`;
-        await this.storage.save(storagePath, upload.buffer);
+        await this.storage.moveIn(upload.path, storagePath);
         written.push({
           kind,
           storagePath,
