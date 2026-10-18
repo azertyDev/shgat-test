@@ -23,9 +23,7 @@ import {
 } from '@nestjs/swagger';
 import type { Response } from 'express';
 import { createReadStream } from 'node:fs';
-import { randomUUID } from 'node:crypto';
-import { diskStorage } from 'multer';
-import { incomingDir } from '../storage/upload-root.js';
+import { uploadOptions } from '../storage/upload-options.js';
 import { ALL_ROLES, Role } from '../auth/role.enum.js';
 import { Roles } from '../auth/roles.decorator.js';
 import { ParseIdPipe } from '../common/pipes/parse-id.pipe.js';
@@ -36,17 +34,9 @@ import {
 } from './applications.service.js';
 import { UPLOAD_FIELDS } from './api-contract.js';
 
-// Uploads stream to disk (not memory), next to the storage root. The 20 MB rule is checked in the
-// service so that the 422 names the field; this limit only stops absurdly large bodies.
 const uploadInterceptor = FileFieldsInterceptor(
   UPLOAD_FIELDS.map((name) => ({ name, maxCount: 1 })),
-  {
-    storage: diskStorage({
-      destination: incomingDir(),
-      filename: (_req, _file, cb) => cb(null, randomUUID()),
-    }),
-    limits: { fileSize: 50 * 1024 * 1024, files: UPLOAD_FIELDS.length },
-  },
+  uploadOptions(UPLOAD_FIELDS.length),
 );
 
 // example payload of the task spec (wire names)
