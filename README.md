@@ -168,4 +168,4 @@ lotin/kirill almashtirish, mobil ekran.
 
 ## Sarflangan vaqt
 
-_TODO: to'ldiring_
+~10 soat: backend ~6, frontend ~4. Ishda AI yordamchisidan foydalanildi.
