@@ -20,6 +20,8 @@ services:
       DATABASE_URL: postgresql://shgat:shgat@db:5432/shgat
       ARCGIS_LAYER_URL: https://sampleserver6.arcgisonline.com/arcgis/rest/services/Wildfire/FeatureServer/2
       UPLOAD_DIR: /app/uploads
+      # local development only: the default is public, set JWT_SECRET in the environment for anything shared
+      JWT_SECRET: ${JWT_SECRET:-local-dev-only-not-secret}
     ports:
       - "3000:3000"
     volumes:
