@@ -59,7 +59,8 @@ describe('ApplicationsService.approve', () => {
     const { service, prisma, arcgis } = setup();
     await expect(service.approve(1)).resolves.toEqual({ id_raqam: 'БР-1703401-2026', arcgis_object_id: 555 });
 
-    const [description, geometry, firstAttemptAt] = arcgis.addFeature.mock.calls[0] as unknown as [string, any, Date];
+    const [description, geometry, firstAttemptAt, isRetry] = arcgis.addFeature.mock.calls[0] as unknown as [string, any, Date, boolean];
+    expect(isRetry).toBe(false);
     expect(description).toBe('БР-1703401-2026 | Andijon shahri bosh rejasi');
     expect(geometry.spatialReference.wkid).toBe(102100);
     expect(prisma.application.update).toHaveBeenCalledWith({ where: { id: 1 }, data: { arcgisAttemptAt: firstAttemptAt } });
@@ -97,7 +98,9 @@ describe('ApplicationsService.approve', () => {
     const firstAttemptAt = new Date('2026-10-18T08:00:00Z');
     const { service, prisma, arcgis } = setup({ arcgisAttemptAt: firstAttemptAt });
     await service.approve(1);
-    expect((arcgis.addFeature.mock.calls[0] as unknown as [string, any, Date])[2]).toBe(firstAttemptAt);
+    const [, , attemptAt, isRetry] = arcgis.addFeature.mock.calls[0] as unknown as [string, any, Date, boolean];
+    expect(attemptAt).toBe(firstAttemptAt);
+    expect(isRetry).toBe(true);
     expect(prisma.application.update).not.toHaveBeenCalled();
   });
 
