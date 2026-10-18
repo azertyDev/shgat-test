@@ -1,16 +1,7 @@
 import { z } from 'zod';
-import { Boundary, validateBoundary } from '../geo/boundary.validation.js';
-import { tashkentDate } from './business-days.js';
-
-export const DOCUMENT_TYPES = [
-  'БСХ',
-  'ҲРС',
-  'ТРЛ',
-  'БР',
-  'БРЛ',
-  'ҚР',
-  'ЛШ',
-] as const;
+import { Boundary, validateBoundary } from '../../geo/boundary.validation.js';
+import { DOCUMENT_TYPES } from '../domain/document-types.js';
+import { tashkentDate } from '../domain/business-days.js';
 
 const required = { error: 'Majburiy maydon' };
 

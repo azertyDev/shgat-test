@@ -9,15 +9,16 @@ import {
   STATUS_TO_API,
   statusFromApi,
   UPLOAD_FIELDS,
-  type ApprovalDto,
   type UploadField,
 } from './api-contract.js';
-import { toDetailsDto, toStatusDto, toSummaryDto } from './application.mapper.js';
-import { createApplicationPayloadSchema, DOCUMENT_TYPES, type ApplicationInput } from './application.schema.js';
+import type { ApprovalDto } from './dto/application-response.dto.js';
+import { toDetailsDto, toStatusDto, toSummaryDto } from './mappers/application.mapper.js';
+import { createApplicationPayloadSchema, type ApplicationInput } from './dto/application-payload.dto.js';
+import { DOCUMENT_TYPES } from './domain/document-types.js';
 import { SoatoService } from '../soato/soato.service.js';
 import { ArcgisError, ArcgisService } from '../arcgis/arcgis.service.js';
 import { toEsriPolygon } from '../geo/esri-geometry.js';
-import { buildRegistrationNumber } from './registration-number.js';
+import { buildRegistrationNumber } from './domain/registration-number.js';
 import { FileStorageService } from '../storage/file-storage.service.js';
 import { checkUploadedFile, detectFileType } from '../storage/file-type.js';
 

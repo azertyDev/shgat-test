@@ -1,12 +1,7 @@
-import type { Application, ApplicationFile, ApplicationStatus } from '../generated/prisma/client.js';
-import {
-  FILE_KIND_TO_FIELD,
-  STATUS_TO_API,
-  type ApplicationDetailsDto,
-  type ApplicationSummaryDto,
-  type StatusDto,
-} from './api-contract.js';
-import { addBusinessDays, tashkentDate } from './business-days.js';
+import type { Application, ApplicationFile, ApplicationStatus } from '../../generated/prisma/client.js';
+import { FILE_KIND_TO_FIELD, STATUS_TO_API } from '../api-contract.js';
+import { addBusinessDays, tashkentDate } from '../domain/business-days.js';
+import type { ApplicationDetailsDto, ApplicationSummaryDto, StatusDto } from '../dto/application-response.dto.js';
 
 const REVIEW_BUSINESS_DAYS = 3;
 
