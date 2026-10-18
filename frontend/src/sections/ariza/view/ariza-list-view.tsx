@@ -173,6 +173,7 @@ export function ArizaListView({ search }: { search: RoyxatSearch }) {
           rowsPerPage={hajm}
           rowsPerPageOptions={[5, 10, 25, 50]}
           labelRowsPerPage={t('royxat.sahifada')}
+          labelDisplayedRows={({ from, to, count }) => `${from}–${to} / ${count}`}
           onPageChange={(_, p) => filtr({ ...search, sahifa: p + 1 })}
           onRowsPerPageChange={(e) => filtr({ hajm: Number(e.target.value) })}
         />
