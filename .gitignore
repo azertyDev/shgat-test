@@ -8,4 +8,3 @@ backend/src/generated/
 .DS_Store
 *.tsbuildinfo
 .tanstack/
-.omc/
