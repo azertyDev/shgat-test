@@ -58,7 +58,7 @@ PORT=3000
 ## Testlar
 
 ```bash
-cd backend && npm test     # 45 ta: ID generatori, chegara, proyeksiya, halqa yo'nalishi, fayllar, muddat, ArcGIS (mock), tasdiqlash oqimi
+cd backend && npm test     # 72 ta: ID generatori, chegara, proyeksiya, halqa yo'nalishi, fayllar va saqlash, muddat, ArcGIS (mock), tasdiqlash oqimi
 cd frontend && npm test    # 31 ta: forma (TanStack Form), tekshiruvchi amallari (409/502), sxema, API kontrakti, GeoJSON, lotin→kirill, tarjima kalitlari
 ```
 
@@ -98,14 +98,19 @@ frontend/src/
 - **Tasdiqlash tartibi**: holat tekshiruvi → ID takrori tekshiruvi (409) → ArcGIS'ga yozish → faqat shundan keyin
   `id_raqam`, `arcgis_object_id` va holat saqlanadi. ArcGIS xato bersa yoki javob bermasa — 502, ariza `yuborilgan`da qoladi.
   `id_raqam` ustunida `UNIQUE` cheklov bor: parallel tasdiqlashda ham ikkinchi ID yaratilmaydi.
-- **Qayta urinishda dublikat yo'q**: har urinishdan oldin qatlamdan
+- **Qayta urinishda dublikat yo'q**: oldingi urinish obyektni yaratib, javobi yo'qolgan bo'lishi mumkin bo'lsa (shu so'rov
+  ichidagi qayta urinish yoki `arcgis_attempt_at` saqlangan qayta tasdiqlash), avval qatlamdan
   `description = '<aniq matn>' AND created_date >= <birinchi urinish vaqti>` qidiriladi; topilsa, mavjud `objectId` olinadi.
-  Birinchi urinish vaqti bazada saqlanadi (`arcgis_attempt_at`), shuning uchun tekshiruvchi tugmani qayta bossa ham ishlaydi.
-  Vaqt sharti ataylab qo'yilgan: server umumiy va boshqa nomzodlar ham namunadagi `БР-1703401-2026` bilan yozadi —
-  faqat ID bo'yicha qidiruv birovning obyektini "topib" olardi (sinovda aynan shu holat uchradi).
+  Yangi birinchi urinishda qidiruv yo'q: server umumiy, boshqa nomzodlar ham namunadagi `БР-1703401-2026` bilan yozadi va
+  ularning obyektini "topib" olish xavfi bor (sinovda aynan shu holat uchradi).
+- **Yozilgan, lekin bog'lanmagan obyekt qolmaydi**: ArcGIS'ga yozilgandan keyin holat o'zgarmasa (ariza shu orada qaytarilgan
+  yoki parallel tasdiqlash ID'ni band qilgan), obyekt qatlamdan o'chiriladi (`applyEdits deletes`) va 409 qaytadi.
 - **Timeout va retry**: `AbortSignal.timeout` (10 s), 2 marta qayta urinish.
-- **Fayllar**: turi mijoz yuborgan `mime` bo'yicha emas, birinchi baytlar (PDF/PNG/JPG imzosi) bo'yicha aniqlanadi;
-  diskka foydalanuvchi nomi bilan emas, `{arizaId}/{tur}.{ext}` sifatida yoziladi. 20 MB dan oshsa — 422 va maydon nomi.
+- **Fayllar**: xotiraga emas, to'g'ridan-to'g'ri diskka (`UPLOAD_DIR/.incoming`, multer `diskStorage`) qabul qilinadi.
+  Turi mijoz yuborgan `mime` bo'yicha emas, birinchi baytlar (PDF/PNG/JPG imzosi) bo'yicha aniqlanadi; 20 MB dan oshsa —
+  422 va maydon nomi. Saqlashda nom foydalanuvchidan olinmaydi (`{tur}-{uuid}.{ext}`), fayllar bazadagi tranzaksiyadan
+  oldin joylanadi va hech qachon ustidan yozilmaydi: tranzaksiya muvaffaqiyatsiz bo'lsa yangilari o'chiriladi, almashtirilgan
+  eskilari esa faqat commit'dan keyin o'chiriladi. Vaqtinchalik fayllar har so'rovdan keyin tozalanadi.
 - **Frontend**: ro'yxat filtrlari va sahifa URL'da (TanStack Router `validateSearch` + Zod). Forma — TanStack Form + Zod
   (Standard Schema), server 422 xatolari tegishli maydon yonida ko'rsatiladi. Xarita: `<arcgis-map>` + `<arcgis-sketch>`
   (5.0 dan `Sketch` vidjeti eskirgan), hisobga olingan hujjat — `FeatureLayer` + `definitionExpression: objectid = N`;
