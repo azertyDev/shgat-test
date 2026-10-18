@@ -13,20 +13,28 @@ API kelishuvi: [docs/api.md](docs/api.md) · Swagger: <http://localhost:3000/api
 
 ## Ishga tushirish
 
-Kerak: Docker, Node.js 22+.
+Kerak: faqat Docker.
 
 ```bash
-# 1. Backend + PostgreSQL (migratsiyalar avtomatik qo'llanadi)
-docker compose up -d --build
-
-# 2. Frontend
-cd frontend
-npm install
-npm run dev
+docker compose up -d --build --wait
 ```
 
-Ilova: <http://localhost:8080>. Vite `/api` so'rovlarini `localhost:3000` ga yo'naltiradi.
+Ilova: <http://localhost:8080> (nginx: statik frontend, `/api` → NestJS). API to'g'ridan-to'g'ri: <http://localhost:3000/api>,
+Swagger: <http://localhost:3000/api/docs>. Migratsiyalar avtomatik qo'llanadi; `--wait` hamma servis tayyor bo'lganda qaytadi
+(toza kompyuterda birinchi yig'ish bir necha daqiqa oladi).
 Rol yuqori o'ng burchakdagi tugma bilan almashtiriladi (frontend rol uchun JWT oladi, bo'lmasa `X-Rol` yuboradi), yozuv — **Lotin / Кирилл**.
+
+Ixtiyoriy: ArcGIS dasturchi kaliti — `VITE_ARCGIS_API_KEY=... docker compose up -d --build`; `JWT_SECRET` ni ham
+shu tarzda bering (standart qiymat faqat lokal ishga tushirish uchun).
+
+### Frontend'ni dev rejimida (hot reload)
+
+```bash
+docker compose up -d --wait db api   # web konteyneri 8080 portni egallamasligi uchun
+cd frontend
+npm install
+npm run dev                          # http://localhost:8080, /api → localhost:3000
+```
 
 ### Backend'ni Docker'siz ishga tushirish
 
@@ -138,7 +146,6 @@ lotin/kirill almashtirish, mobil ekran.
 - PostGIS — kerak bo'lmadi: chegara `jsonb`da saqlanadi, tekshiruv va proyeksiya ilovada.
 - SOATO ro'yxati (`backend/data/soato.json`) — 12 ta viloyat markazidan iborat namuna, rasmiy to'liq ro'yxat emas.
 - 3 ish kunlik muddatda bayram kunlari hisobga olinmaydi.
-- Frontend Docker Compose'ga kiritilmagan (dev server orqali).
 - Frontend bundle katta (ArcGIS SDK) — code-splitting sozlanmagan.
 
 ## Sarflangan vaqt
