@@ -1,6 +1,6 @@
 import { z } from 'zod';
 import { isKnownSoatoCode } from '../soato/soato.js';
-import { Boundary, validateBoundary } from './boundary.js';
+import { Boundary, validateBoundary } from '../geo/boundary.validation.js';
 import { tashkentDate } from './business-days.js';
 
 export const DOCUMENT_TYPES = ['БСХ', 'ҲРС', 'ТРЛ', 'БР', 'БРЛ', 'ҚР', 'ЛШ'] as const;

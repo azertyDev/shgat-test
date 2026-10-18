@@ -1,5 +1,5 @@
 import { ArcgisError, ArcgisService, toSqlTimestamp } from './arcgis.service.js';
-import { toEsriPolygon } from './boundary.js';
+import { toEsriPolygon } from '../geo/esri-geometry.js';
 
 const geometry = toEsriPolygon({
   type: 'Polygon',
