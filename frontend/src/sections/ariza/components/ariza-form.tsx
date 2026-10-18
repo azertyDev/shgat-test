@@ -1,7 +1,7 @@
 import type { ArizaToliq } from '../types';
 import type { ArizaFormValues } from '../schema';
 
-import { useRef, useState } from 'react';
+import { useState } from 'react';
 import { useForm } from '@tanstack/react-form';
 import { useQuery } from '@tanstack/react-query';
 
@@ -45,7 +45,8 @@ export function ArizaForm({ ariza, onYuborish, onMuvaffaqiyat }: Props) {
   const { t, tr } = useTranslate();
   const soato = useQuery(soatoQuery);
   const [foiz, setFoiz] = useState<number | null>(null);
-  const natija = useRef<{ id: number } | null>(null);
+  // server 422 xatolari: maydon o'zgarganda o'sha maydonniki o'chadi
+  const [server, setServer] = useState<{ xato?: string; maydonlar: Record<string, string> }>({ maydonlar: {} });
   const schema = arizaFormSchema(!ariza);
 
   const form = useForm({
@@ -60,30 +61,28 @@ export function ArizaForm({ ariza, onYuborish, onMuvaffaqiyat }: Props) {
       tushuntirish_xati: null,
       tasdiqlovchi_hujjat: null,
     } as ArizaFormValues,
-    validators: {
-      onChange: schema,
-      onSubmit: schema,
-      // server 422 qaytarsa — xatolar shu maydonlar yonida ko'rinadi
-      onSubmitAsync: async ({ value }) => {
-        setFoiz(0);
-        try {
-          natija.current = await onYuborish(formDataga(value), setFoiz);
-          return null;
-        } catch (e) {
-          const x = e instanceof ApiXato ? e : new ApiXato(0, t('xato.umumiy'));
-          return { form: x.message, fields: x.maydonlar ?? {} };
-        } finally {
-          setFoiz(null);
-        }
-      },
+    validators: { onChange: schema, onSubmit: schema },
+    listeners: {
+      onChange: ({ fieldApi }) =>
+        setServer((p) => (p.maydonlar[fieldApi.name] ? { ...p, maydonlar: { ...p.maydonlar, [fieldApi.name]: '' } } : p)),
     },
-    onSubmit: () => {
-      if (natija.current) onMuvaffaqiyat(natija.current.id);
+    onSubmit: async ({ value }) => {
+      setServer({ maydonlar: {} });
+      setFoiz(0);
+      try {
+        const { id } = await onYuborish(formDataga(value), setFoiz);
+        onMuvaffaqiyat(id);
+      } catch (e) {
+        const x = e instanceof ApiXato ? e : new ApiXato(0, t('xato.umumiy'));
+        setServer({ xato: x.message, maydonlar: x.maydonlar ?? {} });
+      } finally {
+        setFoiz(null);
+      }
     },
   });
 
-  const xatosi = (meta: { errors: unknown[]; isTouched: boolean }) =>
-    meta.isTouched || form.state.submissionAttempts > 0 ? tr(birinchiXato(meta.errors)) : '';
+  const xatosi = (meta: { errors: unknown[]; isTouched: boolean }, nomi: string) =>
+    tr((meta.isTouched || form.state.submissionAttempts > 0 ? birinchiXato(meta.errors) : '') || server.maydonlar[nomi]);
 
   return (
     <form
@@ -107,8 +106,8 @@ export function ArizaForm({ ariza, onYuborish, onMuvaffaqiyat }: Props) {
                     value={field.state.value}
                     onChange={(e) => field.handleChange(e.target.value)}
                     onBlur={field.handleBlur}
-                    error={!!xatosi(field.state.meta)}
-                    helperText={xatosi(field.state.meta)}
+                    error={!!xatosi(field.state.meta, field.name)}
+                    helperText={xatosi(field.state.meta, field.name)}
                     slotProps={{ htmlInput: { maxLength: 255 } }}
                   />
                 )}
@@ -123,8 +122,8 @@ export function ArizaForm({ ariza, onYuborish, onMuvaffaqiyat }: Props) {
                     value={field.state.value}
                     onChange={(e) => field.handleChange(e.target.value)}
                     onBlur={field.handleBlur}
-                    error={!!xatosi(field.state.meta)}
-                    helperText={xatosi(field.state.meta)}
+                    error={!!xatosi(field.state.meta, field.name)}
+                    helperText={xatosi(field.state.meta, field.name)}
                   >
                     {HUJJAT_TURLARI.map((tur) => (
                       <MenuItem key={tur} value={tur}>
@@ -149,8 +148,8 @@ export function ArizaForm({ ariza, onYuborish, onMuvaffaqiyat }: Props) {
                       <TextField
                         {...params}
                         label={t('forma.soato_kodi')}
-                        error={!!xatosi(field.state.meta) || soato.isError}
-                        helperText={xatosi(field.state.meta) || (soato.isError ? tr(soato.error.message) : '')}
+                        error={!!xatosi(field.state.meta, field.name) || soato.isError}
+                        helperText={xatosi(field.state.meta, field.name) || (soato.isError ? tr(soato.error.message) : '')}
                       />
                     )}
                   />
@@ -166,8 +165,8 @@ export function ArizaForm({ ariza, onYuborish, onMuvaffaqiyat }: Props) {
                     value={field.state.value}
                     onChange={(e) => field.handleChange(e.target.value)}
                     onBlur={field.handleBlur}
-                    error={!!xatosi(field.state.meta)}
-                    helperText={xatosi(field.state.meta)}
+                    error={!!xatosi(field.state.meta, field.name)}
+                    helperText={xatosi(field.state.meta, field.name)}
                     slotProps={{ inputLabel: { shrink: true }, htmlInput: { max: bugun() } }}
                   />
                 )}
@@ -181,8 +180,8 @@ export function ArizaForm({ ariza, onYuborish, onMuvaffaqiyat }: Props) {
                     value={field.state.value}
                     onChange={(e) => field.handleChange(e.target.value)}
                     onBlur={field.handleBlur}
-                    error={!!xatosi(field.state.meta)}
-                    helperText={xatosi(field.state.meta)}
+                    error={!!xatosi(field.state.meta, field.name)}
+                    helperText={xatosi(field.state.meta, field.name)}
                     slotProps={{ htmlInput: { maxLength: 100 } }}
                   />
                 )}
@@ -214,7 +213,7 @@ export function ArizaForm({ ariza, onYuborish, onMuvaffaqiyat }: Props) {
                       value={field.state.value}
                       onChange={field.handleChange}
                       onBlur={field.handleBlur}
-                      error={xatosi(field.state.meta)}
+                      error={xatosi(field.state.meta, field.name)}
                       joriyNomi={ariza?.fayllar.find((f) => f.tur === tur)?.nomi}
                     />
                   )}
@@ -236,15 +235,15 @@ export function ArizaForm({ ariza, onYuborish, onMuvaffaqiyat }: Props) {
                       field.handleChange(g);
                       field.handleBlur();
                     }}
-                    error={xatosi(field.state.meta)}
+                    error={xatosi(field.state.meta, field.name)}
                   />
                 </Stack>
               )}
             </form.Field>
           </Card>
 
-          <form.Subscribe selector={(s) => [s.errorMap.onSubmit, s.isSubmitting, s.submissionAttempts] as const}>
-            {([formXato, isSubmitting, urinishlar]) => (
+          <form.Subscribe selector={(s) => [s.isSubmitting, s.submissionAttempts, s.isValid] as const}>
+            {([isSubmitting, urinishlar, isValid]) => (
               <Stack spacing={2} sx={{ mt: 3 }}>
                 {foiz !== null && (
                   <Stack spacing={0.5}>
@@ -254,8 +253,8 @@ export function ArizaForm({ ariza, onYuborish, onMuvaffaqiyat }: Props) {
                     </Typography>
                   </Stack>
                 )}
-                {typeof formXato === 'string' && formXato && <Alert severity="error">{tr(formXato)}</Alert>}
-                {urinishlar > 0 && !isSubmitting && !form.state.isValid && !formXato && (
+                {server.xato && <Alert severity="error">{tr(server.xato)}</Alert>}
+                {urinishlar > 0 && !isSubmitting && !isValid && (
                   <Alert severity="warning">{t('forma.xatolar')}</Alert>
                 )}
                 <Button type="submit" size="large" variant="contained" loading={isSubmitting} sx={{ alignSelf: 'flex-end' }}>

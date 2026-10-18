@@ -78,4 +78,23 @@ describe('ArizaForm', () => {
 
     expect(await screen.findByText('Fayl hajmi 20 MB dan oshmasin')).toBeInTheDocument();
   });
+
+  it('server 422 xatolari maydon yonida, fayllarsiz tahrir yuboriladi', async () => {
+    const onYuborish = vi
+      .fn()
+      .mockRejectedValueOnce(
+        Object.assign(new (await import('../api')).ApiXato(422, "Ma'lumotlar noto'g'ri", { soato_kodi: "SOATO ro'yxatida yo'q" }))
+      )
+      .mockResolvedValueOnce({ id: 5 });
+    const onMuvaffaqiyat = vi.fn();
+    renderWithProviders(<ArizaForm ariza={ariza} onYuborish={onYuborish} onMuvaffaqiyat={onMuvaffaqiyat} />);
+
+    await userEvent.click(screen.getByRole('button', { name: 'Qayta yuborish' }));
+    expect(await screen.findByText("SOATO ro'yxatida yo'q")).toBeInTheDocument();
+    expect(onYuborish).toHaveBeenCalledTimes(1);
+    expect((onYuborish.mock.calls[0][0] as FormData).has('asosiy_chizma')).toBe(false);
+
+    await userEvent.click(screen.getByRole('button', { name: 'Qayta yuborish' }));
+    await waitFor(() => expect(onMuvaffaqiyat).toHaveBeenCalledWith(5));
+  });
 });
