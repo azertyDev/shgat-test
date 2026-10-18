@@ -22,7 +22,17 @@ docker compose up -d --build --wait
 Ilova: <http://localhost:8080> (nginx: statik frontend, `/api` → NestJS). API to'g'ridan-to'g'ri: <http://localhost:3000/api>,
 Swagger: <http://localhost:3000/api/docs>. Migratsiyalar avtomatik qo'llanadi; `--wait` hamma servis tayyor bo'lganda qaytadi
 (toza kompyuterda birinchi yig'ish bir necha daqiqa oladi).
-Rol yuqori o'ng burchakdagi tugma bilan almashtiriladi (frontend rol uchun JWT oladi, bo'lmasa `X-Rol` yuboradi), yozuv — **Lotin / Кирилл**.
+Rol va yozuv (**Lotin / Кирилл**) chap paneldagi tugmalar bilan almashtiriladi, telefonda — menyuda
+(frontend rol uchun JWT oladi va uni muddati tugaguncha saqlaydi, bo'lmasa `X-Rol` yuboradi).
+
+Demo ma'lumotlar (bo'sh bazaga 12 ta ariza: 5 tasi tasdiqlangan va ArcGIS qatlamida, 2 tasi qaytarilgan, 5 tasi kutmoqda):
+
+```bash
+docker compose exec api npm run seed
+```
+
+Skript API orqali ishlaydi (UI bilan bir xil yo'l), tasdiqlashda umumiy Esri test qatlamiga yozadi; bazada ariza bo'lsa
+ishlamaydi (`-- --force` bilan baribir qo'shadi).
 
 Ixtiyoriy: ArcGIS dasturchi kaliti — `VITE_ARCGIS_API_KEY=... docker compose up -d --build`; `JWT_SECRET` ni ham
 shu tarzda bering (standart qiymat faqat lokal ishga tushirish uchun).
