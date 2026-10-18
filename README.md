@@ -6,7 +6,7 @@ test qatlamiga (`Wildfire/FeatureServer/2`) yozadi. Hisobga olingan hujjat chega
 
 | Qism | Stek |
 |---|---|
-| Backend | NestJS 12, Prisma 7, PostgreSQL 17, Zod 4, Vitest, Swagger |
+| Backend | NestJS 12, Prisma 7, PostgreSQL 17 + PostGIS 3.6, Zod 4, Vitest, Swagger |
 | Frontend | React 19, Vite, TypeScript, MUI 7 (Minimal UI shabloni), TanStack Router / Query / Form, ArcGIS Maps SDK 5.1 (`@arcgis/core` + `@arcgis/map-components`) |
 
 API kelishuvi: [docs/api.md](docs/api.md) · Swagger: <http://localhost:3000/api/docs>
@@ -68,7 +68,7 @@ JWT_SECRET=
 ## Testlar
 
 ```bash
-cd backend && npm test     # 85 ta: ID generatori, chegara, proyeksiya, halqa yo'nalishi, fayllar va saqlash, muddat, ArcGIS (mock), tasdiqlash oqimi, JWT va RoleGuard
+cd backend && npm test     # 95 ta: ID generatori, chegara, PostGIS tekshiruvi, proyeksiya, halqa yo'nalishi, fayllar va saqlash, muddat, ArcGIS (mock), tasdiqlash oqimi, JWT va RoleGuard
 cd frontend && npm test    # 36 ta: forma (TanStack Form), tekshiruvchi amallari (409/502), sxema, API kontrakti, rol tokeni, GeoJSON, lotin→kirill, tarjima kalitlari
 ```
 
@@ -91,7 +91,7 @@ backend/src/
   prisma/        PrismaModule (@Global)
   common/        errors/ (yagona xato formati, filtr), pipes/ (ParseIdPipe)
   auth/          AuthModule — POST /api/auth/token, Role, @Roles, RoleGuard (Bearer token yoki X-Rol)
-  geo/           GeoJSON tekshiruvi, Web Mercator va Esri halqalari (Nest'siz, toza funksiyalar)
+  geo/           GeoJSON tekshiruvi, Web Mercator va Esri halqalari (toza funksiyalar) + GeometryValidator (PostGIS)
   arcgis/        ArcgisModule — Feature Service mijozi (timeout, retry, dublikatsiz qayta urinish)
   soato/         SoatoModule — GET /api/soato va hudud nomlari
   storage/       StorageModule — fayllarni diskka yozish, tur va hajm tekshiruvi
@@ -117,6 +117,11 @@ frontend/src/
   `description = '<aniq matn>' AND created_date >= <birinchi urinish vaqti>` qidiriladi; topilsa, mavjud `objectId` olinadi.
   Yangi birinchi urinishda qidiruv yo'q: server umumiy, boshqa nomzodlar ham namunadagi `БР-1703401-2026` bilan yozadi va
   ularning obyektini "topib" olish xavfi bor (sinovda aynan shu holat uchradi).
+- **Geometriya topologiyasi (PostGIS, gibrid)**: oddiy qoidalar (yopiq halqa, 4+ nuqta, O'zbekiston bbox) JS'da tekshiriladi,
+  so'ng `ST_IsValidReason` (parametrli `$queryRaw`) o'zini kesib o'tuvchi ("sakkizlik"), nuqtalari yetmaydigan, teshigi
+  tashqarida yoki qismlari ustma-ust tushgan poligonlarni 422 bilan rad etadi (xabarda nuqta koordinatasi bor).
+  Chegara `jsonb`da saqlanadi, PostGIS faqat tekshiruv uchun; kengaytma alohida `postgis` sxemasida (Prisma migratsiyalari bilan
+  ziddiyat yo'q). Obraz: `imresamu/postgis` — `postgis/postgis`ning multi-arch yig'ilmasi (Apple Silicon uchun).
 - **Yozilgan, lekin bog'lanmagan obyekt qolmaydi**: ArcGIS'ga yozilgandan keyin holat o'zgarmasa (ariza shu orada qaytarilgan
   yoki parallel tasdiqlash ID'ni band qilgan), obyekt qatlamdan o'chiriladi (`applyEdits deletes`) va 409 qaytadi.
 - **Timeout va retry**: `AbortSignal.timeout` (10 s), 2 marta qayta urinish.
@@ -146,7 +151,7 @@ lotin/kirill almashtirish, mobil ekran.
   `docker-compose.yml`dagi standart `JWT_SECRET` faqat lokal ishga tushirish uchun.
 - Calcite Design System — interfeys MUI asosidagi shablonda; Calcite faqat ArcGIS komponentlari ichida.
 - Frontend uchun MSW mock — yo'q, full-stack variantda haqiqiy API ishlatiladi.
-- PostGIS — kerak bo'lmadi: chegara `jsonb`da saqlanadi, tekshiruv va proyeksiya ilovada.
+- PostGIS faqat geometriya tekshiruvi uchun: `geometry` ustuni va fazoviy indeks yo'q (fazoviy so'rovlar topshiriqda talab qilinmagan).
 - SOATO ro'yxati (`backend/data/soato.json`) — 12 ta viloyat markazidan iborat namuna, rasmiy to'liq ro'yxat emas.
 - 3 ish kunlik muddatda bayram kunlari hisobga olinmaydi.
 - Frontend bundle katta (ArcGIS SDK) — code-splitting sozlanmagan.
