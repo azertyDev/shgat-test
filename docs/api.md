@@ -1,6 +1,11 @@
 # API kelishuvi
 
 Barcha so'rovlarda `X-Rol: ariza_beruvchi | tekshiruvchi` sarlavhasi bo'ladi. Noto'g'ri rol → `403`.
+
+Qo'shimcha (bonus 6.2): `POST /api/auth/token {"rol": "tekshiruvchi"}` → `200 {"token": "..."}` (8 soat).
+`Authorization: Bearer <token>` yuborilsa, rol tokendan olinadi va `X-Rol`dan ustun turadi; yaroqsiz yoki
+muddati o'tgan token → `401`. Token bo'lmasa `X-Rol` avvalgidek ishlaydi.
+
 Xato formati yagona:
 
 ```json

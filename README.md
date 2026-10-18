@@ -26,7 +26,7 @@ npm run dev
 ```
 
 Ilova: <http://localhost:8080>. Vite `/api` so'rovlarini `localhost:3000` ga yo'naltiradi.
-Rol yuqori o'ng burchakdagi tugma bilan almashtiriladi (`X-Rol` sarlavhasi), yozuv — **Lotin / Кирилл**.
+Rol yuqori o'ng burchakdagi tugma bilan almashtiriladi (frontend rol uchun JWT oladi, bo'lmasa `X-Rol` yuboradi), yozuv — **Lotin / Кирилл**.
 
 ### Backend'ni Docker'siz ishga tushirish
 
@@ -50,6 +50,8 @@ ARCGIS_TIMEOUT_MS=10000
 ARCGIS_RETRIES=2
 UPLOAD_DIR=./uploads
 PORT=3000
+# rol tokenlari uchun kalit, masalan: openssl rand -hex 32 (bo'lmasa ilova ishga tushmaydi)
+JWT_SECRET=
 ```
 
 `frontend/.env.example`: `VITE_SERVER_URL` (bo'sh — proxy), `VITE_ARCGIS_LAYER_URL`,
@@ -58,8 +60,8 @@ PORT=3000
 ## Testlar
 
 ```bash
-cd backend && npm test     # 72 ta: ID generatori, chegara, proyeksiya, halqa yo'nalishi, fayllar va saqlash, muddat, ArcGIS (mock), tasdiqlash oqimi
-cd frontend && npm test    # 31 ta: forma (TanStack Form), tekshiruvchi amallari (409/502), sxema, API kontrakti, GeoJSON, lotin→kirill, tarjima kalitlari
+cd backend && npm test     # 85 ta: ID generatori, chegara, proyeksiya, halqa yo'nalishi, fayllar va saqlash, muddat, ArcGIS (mock), tasdiqlash oqimi, JWT va RoleGuard
+cd frontend && npm test    # 36 ta: forma (TanStack Form), tekshiruvchi amallari (409/502), sxema, API kontrakti, rol tokeni, GeoJSON, lotin→kirill, tarjima kalitlari
 ```
 
 Lint: `npm run lint` (ikkala papkada).
@@ -76,7 +78,8 @@ Foydalanuvchiga ko'rinadigan matnlar o'zbekcha. Hujjat turlari (`БР`, `ҲРС`
 backend/src/
   app.module.ts, main.ts
   prisma/        PrismaModule (@Global)
-  common/        errors/ (yagona xato formati, filtr), auth/ (Role, @Roles, RoleGuard — X-Rol)
+  common/        errors/ (yagona xato formati, filtr), pipes/ (ParseIdPipe)
+  auth/          AuthModule — POST /api/auth/token, Role, @Roles, RoleGuard (Bearer token yoki X-Rol)
   geo/           GeoJSON tekshiruvi, Web Mercator va Esri halqalari (Nest'siz, toza funksiyalar)
   arcgis/        ArcgisModule — Feature Service mijozi (timeout, retry, dublikatsiz qayta urinish)
   soato/         SoatoModule — GET /api/soato va hudud nomlari
@@ -120,14 +123,16 @@ frontend/src/
 
 ## Bajarilgan
 
-Backend (6.1): 1–8 barcha majburiy bandlar. Qo'shimcha: Docker Compose, Swagger, timeout + retry, 3 ish kunlik muddat (ro'yxatda).
+Backend (6.1): 1–8 barcha majburiy bandlar. Qo'shimcha: Docker Compose, Swagger, timeout + retry, 3 ish kunlik muddat (ro'yxatda), JWT rollar.
 
 Frontend (7.1): 1–8 barcha majburiy bandlar (mock o'rniga haqiqiy backend). Qo'shimcha: komponent testlari (Vitest + Testing Library),
 lotin/kirill almashtirish, mobil ekran.
 
 ## Bajarilmagan / soddalashtirilgan
 
-- JWT rollar — yo'q, `X-Rol` sarlavhasi (topshiriqda ruxsat etilgan).
+- JWT rollar — foydalanuvchi va parol yo'q, shuning uchun token so'ralgan rol uchun beriladi: bu imzolangan, muddatli
+  token mexanizmini ko'rsatadi, haqiqiy autentifikatsiya emas. Topshiriq kelishuvi buzilmasligi uchun `X-Rol` ham ishlaydi.
+  `docker-compose.yml`dagi standart `JWT_SECRET` faqat lokal ishga tushirish uchun.
 - Calcite Design System — interfeys MUI asosidagi shablonda; Calcite faqat ArcGIS komponentlari ichida.
 - Frontend uchun MSW mock — yo'q, full-stack variantda haqiqiy API ishlatiladi.
 - PostGIS — kerak bo'lmadi: chegara `jsonb`da saqlanadi, tekshiruv va proyeksiya ilovada.
