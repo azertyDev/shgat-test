@@ -48,15 +48,17 @@ Query: `holat`, `hujjat_turi`, `soato_kodi`, `sahifa` (1 dan, default 1), `hajm`
   "items": [{
     "id": 1, "id_raqam": null, "hujjat_nomi": "...", "hujjat_turi": "БР",
     "soato_kodi": "1703401", "hudud_nomi": "Andijon shahri", "holat": "yuborilgan",
-    "yuborilgan_vaqt": "2026-10-18T10:00:00.000Z", "muddat": "2026-10-21"
+    "yuborilgan_vaqt": "2026-10-18T10:00:00.000Z", "muddat": "2026-10-21",
+    "chegara": { "type": "Polygon", "coordinates": [[[72.3, 40.78], [72.36, 40.78], [72.36, 40.74], [72.3, 40.78]]] }
   }],
   "jami": 1
 }
 ```
 
+`chegara` — xaritada ko'rsatish uchun (GeoJSON).
 `muddat` — yuborilgan kundan 3 ish kuni (shanba-yakshanbasiz), tekshiruvchi uchun.
 
 ### GET /api/arizalar/{id}
 
-Ro'yxat elementi + `tasdiq_sanasi`, `tasdiq_hujjati`, `chegara` (GeoJSON), `arcgis_object_id`,
+Ro'yxat elementi + `tasdiq_sanasi`, `tasdiq_hujjati`, `arcgis_object_id`,
 `qaytarish_sababi`, `fayllar: [{tur, nomi, mime, hajm, url}]`.

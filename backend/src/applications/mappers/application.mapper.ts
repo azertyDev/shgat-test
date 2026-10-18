@@ -37,6 +37,7 @@ export const toSummaryDto = (
     a.status === 'SUBMITTED'
       ? addBusinessDays(tashkentDate(a.submittedAt), REVIEW_BUSINESS_DAYS)
       : null,
+  chegara: a.boundary,
 });
 
 export const toDetailsDto = (
@@ -46,7 +47,6 @@ export const toDetailsDto = (
   ...toSummaryDto(a, regionName),
   tasdiq_sanasi: a.approvalDate.toISOString().slice(0, 10),
   tasdiq_hujjati: a.approvalDecree,
-  chegara: a.boundary,
   arcgis_object_id: a.arcgisObjectId,
   qaytarish_sababi: a.returnReason,
   fayllar: a.files.map((f) => {

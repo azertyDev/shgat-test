@@ -17,12 +17,13 @@ export interface ApplicationSummaryDto {
   yuborilgan_vaqt: Date;
   /** review deadline, only while the application waits for review */
   muddat: string | null;
+  /** GeoJSON boundary, so that the list can be shown on a map */
+  chegara: unknown;
 }
 
 export interface ApplicationDetailsDto extends ApplicationSummaryDto {
   tasdiq_sanasi: string;
   tasdiq_hujjati: string;
-  chegara: unknown;
   arcgis_object_id: number | null;
   qaytarish_sababi: string | null;
   fayllar: {

@@ -346,6 +346,7 @@ describe('ApplicationsService.list validation', () => {
       hujjat_turi: 'БР',
       hudud_nomi: 'Andijon shahri',
       muddat: '2026-10-21', // Friday + 3 business days
+      chegara: application.boundary,
     });
   });
 
