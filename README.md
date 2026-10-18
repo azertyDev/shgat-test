@@ -58,23 +58,49 @@ PORT=3000
 ## Testlar
 
 ```bash
-cd backend && npm test     # 42 ta: ID generatori, chegara, proyeksiya, halqa yo'nalishi, fayllar, muddat, ArcGIS (mock), tasdiqlash oqimi
-cd frontend && npm test    # 26 ta: forma (TanStack Form), tekshiruvchi amallari (409/502), sxema, GeoJSON, lotin→kirill
+cd backend && npm test     # 45 ta: ID generatori, chegara, proyeksiya, halqa yo'nalishi, fayllar, muddat, ArcGIS (mock), tasdiqlash oqimi
+cd frontend && npm test    # 31 ta: forma (TanStack Form), tekshiruvchi amallari (409/502), sxema, API kontrakti, GeoJSON, lotin→kirill, tarjima kalitlari
 ```
 
 Lint: `npm run lint` (ikkala papkada).
+
+## Loyiha tuzilmasi
+
+Kod, baza, fayl va o'zgaruvchi nomlari — ingliz tilida. Topshiriqning API kelishuvi (yo'llar, maydonlar, holat qiymatlari,
+`xato`/`maydonlar`, `X-Rol`) o'zbekcha va o'zgarmaydi: bu nomlar har tomonda faqat bitta qatlamda turadi va shu yerda
+inglizcha modelga o'giriladi — `backend/src/applications/api-contract.ts` (+ `dto/`, `mappers/`) va
+`frontend/src/sections/application/api-contract.ts`. Masalan, kodda `ApplicationStatus.SUBMITTED`, API'da `"yuborilgan"`.
+Foydalanuvchiga ko'rinadigan matnlar o'zbekcha. Hujjat turlari (`БР`, `ҲРС`, ...) — topshiriqdagi kodlar, ma'lumot sifatida qoladi.
+
+```
+backend/src/
+  app.module.ts, main.ts
+  prisma/        PrismaModule (@Global)
+  common/        errors/ (yagona xato formati, filtr), auth/ (Role, @Roles, RoleGuard — X-Rol)
+  geo/           GeoJSON tekshiruvi, Web Mercator va Esri halqalari (Nest'siz, toza funksiyalar)
+  arcgis/        ArcgisModule — Feature Service mijozi (timeout, retry, dublikatsiz qayta urinish)
+  soato/         SoatoModule — GET /api/soato va hudud nomlari
+  storage/       StorageModule — fayllarni diskka yozish, tur va hajm tekshiruvi
+  applications/  ApplicationsModule — controller, service, api-contract.ts,
+                 dto/ (so'rov sxemasi, javob turlari), mappers/, domain/ (ID raqam, ish kunlari, hujjat turlari)
+frontend/src/
+  pages/         TanStack Router fayl yo'llari (/, /applications/new, /applications/$id, /applications/$id/edit)
+  sections/application/  types, api-contract, api, queries, form-schema, components/, view/
+  locales/       uz-Latn lug'ati, avtomatik kirill (transliterate.ts)
+  theme/, components/, layouts/   Minimal UI shablonidan
+```
 
 ## Qanday ishlaydi (asosiy qarorlar)
 
 - **Geometriya**: GeoJSON (WGS-84) → Web Mercator (formula, kutubxonasiz) → Esri JSON `rings`.
   Halqa yo'nalishi shoelace bilan hisoblanadi: tashqi halqa soat mili bo'yicha, teshiklar teskari.
-  MultiPolygon halqalari bitta `rings` ro'yxatiga yig'iladi. `backend/src/arizalar/chegara.ts`
+  MultiPolygon halqalari bitta `rings` ro'yxatiga yig'iladi. `backend/src/geo/esri-geometry.ts`
 - **Tasdiqlash tartibi**: holat tekshiruvi → ID takrori tekshiruvi (409) → ArcGIS'ga yozish → faqat shundan keyin
   `id_raqam`, `arcgis_object_id` va holat saqlanadi. ArcGIS xato bersa yoki javob bermasa — 502, ariza `yuborilgan`da qoladi.
   `id_raqam` ustunida `UNIQUE` cheklov bor: parallel tasdiqlashda ham ikkinchi ID yaratilmaydi.
 - **Qayta urinishda dublikat yo'q**: har urinishdan oldin qatlamdan
   `description = '<aniq matn>' AND created_date >= <birinchi urinish vaqti>` qidiriladi; topilsa, mavjud `objectId` olinadi.
-  Birinchi urinish vaqti bazada saqlanadi (`arcgis_urinish_vaqti`), shuning uchun tekshiruvchi tugmani qayta bossa ham ishlaydi.
+  Birinchi urinish vaqti bazada saqlanadi (`arcgis_attempt_at`), shuning uchun tekshiruvchi tugmani qayta bossa ham ishlaydi.
   Vaqt sharti ataylab qo'yilgan: server umumiy va boshqa nomzodlar ham namunadagi `БР-1703401-2026` bilan yozadi —
   faqat ID bo'yicha qidiruv birovning obyektini "topib" olardi (sinovda aynan shu holat uchradi).
 - **Timeout va retry**: `AbortSignal.timeout` (10 s), 2 marta qayta urinish.
@@ -85,7 +111,7 @@ Lint: `npm run lint` (ikkala papkada).
   (5.0 dan `Sketch` vidjeti eskirgan), hisobga olingan hujjat — `FeatureLayer` + `definitionExpression: objectid = N`;
   obyekt topilmasa (Esri serverni tozalagan bo'lsa) tushunarli ogohlantirish chiqadi.
 - **Lotin / kirill**: interfeys matnlari bitta lotin lug'atida, kirill varianti transliteratsiya bilan avtomatik yasaladi;
-  serverdan keladigan xabarlar va hudud nomlari ham o'giriladi. `frontend/src/locales/kirill.ts`
+  serverdan keladigan xabarlar va hudud nomlari ham o'giriladi. `frontend/src/locales/transliterate.ts`
 
 ## Bajarilgan
 
