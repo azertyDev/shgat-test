@@ -44,7 +44,7 @@ function Qator({ label, children }: { label: string; children: React.ReactNode }
 }
 
 export function ArizaDetailsView({ id }: { id: number }) {
-  const { t, tr } = useTranslate();
+  const { t, localize } = useTranslate();
   const rol = useRol();
   const { data: a, isPending, error } = useQuery(arizaQuery(id));
 
@@ -52,7 +52,7 @@ export function ArizaDetailsView({ id }: { id: number }) {
   if (error)
     return (
       <Container maxWidth="lg">
-        <Alert severity="error">{tr(error.message)}</Alert>
+        <Alert severity="error">{localize(error.message)}</Alert>
       </Container>
     );
 
@@ -93,7 +93,7 @@ export function ArizaDetailsView({ id }: { id: number }) {
               <Qator label={t('forma.hujjat_nomi')}>{a.hujjat_nomi}</Qator>
               <Qator label={t('forma.hujjat_turi')}>{a.hujjat_turi}</Qator>
               <Qator label={t('forma.soato_kodi')}>
-                {a.soato_kodi} — {tr(a.hudud_nomi)}
+                {a.soato_kodi} — {localize(a.hudud_nomi)}
               </Qator>
               <Qator label={t('forma.tasdiq_sanasi')}>{dayjs(a.tasdiq_sanasi).format('DD.MM.YYYY')}</Qator>
               <Qator label={t('forma.tasdiq_hujjati')}>{a.tasdiq_hujjati}</Qator>

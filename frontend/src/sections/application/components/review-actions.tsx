@@ -21,12 +21,12 @@ import { useQaytarish, useTasdiqlash } from '../queries';
 
 /** 409 va 502 — tekshiruvchi uchun oddiy tilda; server xabari tafsilot sifatida qoladi. */
 function useXatoMatni() {
-  const { t, tr } = useTranslate();
+  const { t, localize } = useTranslate();
   return (e: unknown) => {
     if (!(e instanceof ApiXato)) return { asosiy: t('xato.umumiy'), tafsilot: '' };
-    if (e.status === 409 && /ID raqami/.test(e.message)) return { asosiy: t('tekshiruv.takror'), tafsilot: tr(e.message) };
-    if (e.status === 502) return { asosiy: t('tekshiruv.arcgis'), tafsilot: tr(e.message) };
-    return { asosiy: tr(e.message), tafsilot: '' };
+    if (e.status === 409 && /ID raqami/.test(e.message)) return { asosiy: t('tekshiruv.takror'), tafsilot: localize(e.message) };
+    if (e.status === 502) return { asosiy: t('tekshiruv.arcgis'), tafsilot: localize(e.message) };
+    return { asosiy: localize(e.message), tafsilot: '' };
   };
 }
 

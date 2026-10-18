@@ -1,7 +1,7 @@
 import type { InitOptions } from 'i18next';
 
 import { uzLatn } from './langs/uz-latn';
-import { lugatniOgir } from './transliterate';
+import { transliterateDictionary } from './transliterate';
 
 // ----------------------------------------------------------------------
 
@@ -30,7 +30,7 @@ export const allLangs: LangOption[] = [
 
 export const resources = {
   'uz-Latn': { [defaultNS]: uzLatn },
-  'uz-Cyrl': { [defaultNS]: lugatniOgir(uzLatn) },
+  'uz-Cyrl': { [defaultNS]: transliterateDictionary(uzLatn) },
 };
 
 export function i18nOptions(lang: LangCode = fallbackLng): InitOptions {

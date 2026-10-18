@@ -6,7 +6,7 @@ import dayjs from 'dayjs';
 import { validateChegara } from './boundary';
 import { FAYL_TURLARI, HUJJAT_TURLARI } from './types';
 
-// Xabarlar lotinda; kirill rejimida `tr()` orqali o'giriladi.
+// Xabarlar lotinda; kirill rejimida `localize()` orqali o'giriladi.
 
 export const MAX_FAYL_HAJMI = 20 * 1024 * 1024;
 const FAYL_MIME = ['application/pdf', 'image/jpeg', 'image/png'];

@@ -45,7 +45,7 @@ function chegaraga(geometry: unknown): Chegara | null {
 }
 
 export function ChegaraXarita({ value, onChange, error }: Props) {
-  const { t, tr } = useTranslate();
+  const { t, localize } = useTranslate();
   const viewRef = useRef<MapView | null>(null);
   const sketchRef = useRef<HTMLArcgisSketchElement>(null);
   const yaqinlash = useRef(true); // fayldan yoki saqlangan qiymat — xaritani unga yaqinlashtiramiz
@@ -162,7 +162,7 @@ export function ChegaraXarita({ value, onChange, error }: Props) {
       {ogohlantirish === TASHQARIDA ? (
         <Alert severity="warning">{t('xarita.tashqarida')}</Alert>
       ) : (
-        error && <FormHelperText error>{tr(error)}</FormHelperText>
+        error && <FormHelperText error>{localize(error)}</FormHelperText>
       )}
     </Stack>
   );

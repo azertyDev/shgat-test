@@ -17,7 +17,7 @@ import { ArizaForm } from '../components/application-form';
 // ----------------------------------------------------------------------
 
 export function ArizaEditView({ id }: { id: number }) {
-  const { t, tr } = useTranslate();
+  const { t, localize } = useTranslate();
   const navigate = useNavigate();
   const qc = useQueryClient();
   const { data: ariza, isPending, error } = useQuery(arizaQuery(id));
@@ -29,9 +29,9 @@ export function ArizaEditView({ id }: { id: number }) {
       </Typography>
 
       {isPending && <LinearProgress />}
-      {error && <Alert severity="error">{tr(error.message)}</Alert>}
+      {error && <Alert severity="error">{localize(error.message)}</Alert>}
       {ariza && ariza.holat !== 'qaytarilgan' && (
-        <Alert severity="info">{tr('Faqat qaytarilgan arizani tuzatib qayta yuborish mumkin')}</Alert>
+        <Alert severity="info">{localize('Faqat qaytarilgan arizani tuzatib qayta yuborish mumkin')}</Alert>
       )}
       {ariza?.qaytarish_sababi && (
         <Alert severity="warning" sx={{ mb: 3 }}>

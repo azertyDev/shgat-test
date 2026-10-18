@@ -4,7 +4,7 @@ import { useCallback } from 'react';
 import { useTranslation } from 'react-i18next';
 import { setStorage } from 'minimal-shared/utils';
 
-import { lotindanKirillga } from './transliterate';
+import { latinToCyrillic } from './transliterate';
 import { storageConfig, getCurrentLang } from './locales-config';
 
 // ----------------------------------------------------------------------
@@ -23,12 +23,12 @@ export function useTranslate() {
     [i18n]
   );
 
-  /** Serverdan kelgan (lotin) matnni joriy yozuvga moslaydi: xato xabarlari, hudud nomlari. */
-  const tr = useCallback(
-    (matn: string | null | undefined) =>
-      !matn ? '' : currentLang.value === 'uz-Cyrl' ? lotindanKirillga(matn) : matn,
+  /** Adapts Latin text coming from the server (error messages, region names) to the current script. */
+  const localize = useCallback(
+    (text: string | null | undefined) =>
+      !text ? '' : currentLang.value === 'uz-Cyrl' ? latinToCyrillic(text) : text,
     [currentLang.value]
   );
 
-  return { t, tr, i18n, currentLang, onChangeLang };
+  return { t, localize, i18n, currentLang, onChangeLang };
 }

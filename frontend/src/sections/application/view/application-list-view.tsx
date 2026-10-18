@@ -40,7 +40,7 @@ import { HolatLabel } from '../components/status-label';
 // ----------------------------------------------------------------------
 
 export function ArizaListView({ search }: { search: RoyxatSearch }) {
-  const { t, tr } = useTranslate();
+  const { t, localize } = useTranslate();
   const rol = useRol();
   const navigate = useNavigate({ from: '/' });
   const sahifa = search.sahifa ?? 1;
@@ -104,7 +104,7 @@ export function ArizaListView({ search }: { search: RoyxatSearch }) {
         </Stack>
 
         <Box sx={{ height: 4 }}>{isFetching && <LinearProgress />}</Box>
-        {isError && <Alert severity="error" sx={{ mx: 2.5, mb: 2 }}>{tr(error.message)}</Alert>}
+        {isError && <Alert severity="error" sx={{ mx: 2.5, mb: 2 }}>{localize(error.message)}</Alert>}
 
         <TableContainer>
           <Scrollbar>
@@ -140,7 +140,7 @@ export function ArizaListView({ search }: { search: RoyxatSearch }) {
                       </Link>
                     </TableCell>
                     <TableCell>{a.hujjat_turi}</TableCell>
-                    <TableCell>{tr(a.hudud_nomi) || a.soato_kodi}</TableCell>
+                    <TableCell>{localize(a.hudud_nomi) || a.soato_kodi}</TableCell>
                     <TableCell>
                       <HolatLabel holat={a.holat} />
                     </TableCell>

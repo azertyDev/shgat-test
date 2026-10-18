@@ -42,7 +42,7 @@ const birinchiXato = (errors: unknown[]) => {
 };
 
 export function ArizaForm({ ariza, onYuborish, onMuvaffaqiyat }: Props) {
-  const { t, tr } = useTranslate();
+  const { t, localize } = useTranslate();
   const soato = useQuery(soatoQuery);
   const [foiz, setFoiz] = useState<number | null>(null);
   // server 422 xatolari: maydon o'zgarganda o'sha maydonniki o'chadi
@@ -82,7 +82,7 @@ export function ArizaForm({ ariza, onYuborish, onMuvaffaqiyat }: Props) {
   });
 
   const xatosi = (meta: { errors: unknown[]; isTouched: boolean }, nomi: string) =>
-    tr((meta.isTouched || form.state.submissionAttempts > 0 ? birinchiXato(meta.errors) : '') || server.maydonlar[nomi]);
+    localize((meta.isTouched || form.state.submissionAttempts > 0 ? birinchiXato(meta.errors) : '') || server.maydonlar[nomi]);
 
   return (
     <form
@@ -142,14 +142,14 @@ export function ArizaForm({ ariza, onYuborish, onMuvaffaqiyat }: Props) {
                     value={soato.data?.find((s) => s.kod === field.state.value) ?? null}
                     onChange={(_, v) => field.handleChange(v?.kod ?? '')}
                     onBlur={field.handleBlur}
-                    getOptionLabel={(s) => `${s.kod} — ${tr(s.nomi)}`}
+                    getOptionLabel={(s) => `${s.kod} — ${localize(s.nomi)}`}
                     isOptionEqualToValue={(a, b) => a.kod === b.kod}
                     renderInput={(params) => (
                       <TextField
                         {...params}
                         label={t('forma.soato_kodi')}
                         error={!!xatosi(field.state.meta, field.name) || soato.isError}
-                        helperText={xatosi(field.state.meta, field.name) || (soato.isError ? tr(soato.error.message) : '')}
+                        helperText={xatosi(field.state.meta, field.name) || (soato.isError ? localize(soato.error.message) : '')}
                       />
                     )}
                   />
@@ -253,7 +253,7 @@ export function ArizaForm({ ariza, onYuborish, onMuvaffaqiyat }: Props) {
                     </Typography>
                   </Stack>
                 )}
-                {server.xato && <Alert severity="error">{tr(server.xato)}</Alert>}
+                {server.xato && <Alert severity="error">{localize(server.xato)}</Alert>}
                 {urinishlar > 0 && !isSubmitting && !isValid && (
                   <Alert severity="warning">{t('forma.xatolar')}</Alert>
                 )}
