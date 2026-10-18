@@ -1,8 +1,10 @@
 import { HttpStatus, Injectable, Logger } from '@nestjs/common';
+import { randomUUID } from 'node:crypto';
 import {
   Prisma,
   type Application,
   type ApplicationStatus,
+  type FileKind,
 } from '../generated/prisma/client.js';
 import { apiError, FieldValidationError } from '../common/errors/api-error.js';
 import { PrismaService } from '../prisma/prisma.service.js';
@@ -38,6 +40,14 @@ export type UploadedFileMap = Partial<
 >;
 type Tx = Prisma.TransactionClient;
 
+interface StoredUpload {
+  kind: FileKind;
+  storagePath: string;
+  originalName: string;
+  mimeType: string;
+  size: number;
+}
+
 const DESCRIPTION_MAX_LENGTH = 75; // length of the description field in the ArcGIS layer
 const MAX_PAGE = 1_000_000;
 const STATE_CHANGED = "Ariza holati o'zgargan, sahifani yangilang";
@@ -63,12 +73,21 @@ export class ApplicationsService {
 
   async create(rawData: unknown, files: UploadedFileMap) {
     const input = this.validate(rawData, files, true);
-    const application = await this.prisma.$transaction(async (tx) => {
-      const created = await tx.application.create({ data: toColumns(input) });
-      await this.storeFiles(tx, created.id, files);
-      return created;
-    });
-    return toStatusDto(application.id, application.status);
+    // disk first, then a short database-only transaction; on failure nothing is left behind
+    const uploads = await this.writeUploads(files);
+    try {
+      const application = await this.prisma.$transaction(async (tx) => {
+        const created = await tx.application.create({
+          data: toColumns(input),
+        });
+        await this.saveFileRows(tx, created.id, uploads);
+        return created;
+      });
+      return toStatusDto(application.id, application.status);
+    } catch (e) {
+      await this.discardFiles(uploads.map((u) => u.storagePath));
+      throw e;
+    }
   }
 
   async list(query: Record<string, string | undefined>) {
@@ -129,20 +148,29 @@ export class ApplicationsService {
       'Faqat qaytarilgan arizani tuzatib qayta yuborish mumkin',
     );
     const input = this.validate(rawData, files, false);
-    await this.prisma.$transaction(async (tx) => {
-      const { count } = await tx.application.updateMany({
-        where: { id, status: 'RETURNED' },
-        data: {
-          ...toColumns(input),
-          status: 'SUBMITTED',
-          submittedAt: new Date(),
-          returnReason: null,
-          arcgisAttemptAt: null,
-        },
+    const uploads = await this.writeUploads(files);
+    let replaced: string[];
+    try {
+      replaced = await this.prisma.$transaction(async (tx) => {
+        const { count } = await tx.application.updateMany({
+          where: { id, status: 'RETURNED' },
+          data: {
+            ...toColumns(input),
+            status: 'SUBMITTED',
+            submittedAt: new Date(),
+            returnReason: null,
+            arcgisAttemptAt: null,
+          },
+        });
+        if (count === 0) throw apiError(HttpStatus.CONFLICT, STATE_CHANGED);
+        return this.saveFileRows(tx, id, uploads);
       });
-      if (count === 0) throw apiError(HttpStatus.CONFLICT, STATE_CHANGED);
-      await this.storeFiles(tx, id, files);
-    });
+    } catch (e) {
+      await this.discardFiles(uploads.map((u) => u.storagePath));
+      throw e;
+    }
+    // old files are removed only after the new rows are committed
+    await this.discardFiles(replaced);
     return toStatusDto(id, 'SUBMITTED');
   }
 
@@ -314,35 +342,67 @@ export class ApplicationsService {
   }
 
   /** The stored name never comes from the user: {applicationId}/{kind}.{ext} */
-  private async storeFiles(
+  /**
+   * Writes the uploads before any database work, each under a fresh unique name, so a stored file is
+   * never overwritten. If one write fails, the files written so far are removed.
+   */
+  private async writeUploads(files: UploadedFileMap): Promise<StoredUpload[]> {
+    const written: StoredUpload[] = [];
+    try {
+      for (const field of UPLOAD_FIELDS) {
+        const upload = files[field]?.[0];
+        if (!upload) continue;
+        const kind = FIELD_TO_FILE_KIND[field];
+        const { ext, mime } = detectFileType(upload.buffer)!;
+        // the stored name never comes from the user
+        const storagePath = `${kind.toLowerCase()}-${randomUUID()}.${ext}`;
+        await this.storage.save(storagePath, upload.buffer);
+        written.push({
+          kind,
+          storagePath,
+          originalName: upload.originalname.slice(0, 255),
+          mimeType: mime,
+          size: upload.size,
+        });
+      }
+      return written;
+    } catch (e) {
+      await this.discardFiles(written.map((w) => w.storagePath));
+      throw e;
+    }
+  }
+
+  /** Upserts the file rows; returns the storage paths of the files they replace. */
+  private async saveFileRows(
     tx: Tx,
     applicationId: number,
-    files: UploadedFileMap,
-  ) {
-    for (const field of UPLOAD_FIELDS) {
-      const upload = files[field]?.[0];
-      if (!upload) continue;
-      const kind = FIELD_TO_FILE_KIND[field];
-      const { ext, mime } = detectFileType(upload.buffer)!;
-      const storagePath = `${applicationId}/${kind.toLowerCase()}.${ext}`;
-      await this.storage.save(storagePath, upload.buffer);
-      const previous = await tx.applicationFile.findUnique({
-        where: { applicationId_kind: { applicationId, kind } },
-      });
-      if (previous && previous.storagePath !== storagePath)
-        await this.storage.remove(previous.storagePath);
-      const row = {
-        originalName: upload.originalname.slice(0, 255),
-        mimeType: mime,
-        size: upload.size,
-        storagePath,
-      };
+    uploads: StoredUpload[],
+  ): Promise<string[]> {
+    const replaced: string[] = [];
+    for (const { kind, ...row } of uploads) {
+      const where = { applicationId_kind: { applicationId, kind } };
+      const previous = await tx.applicationFile.findUnique({ where });
+      if (previous) replaced.push(previous.storagePath);
       await tx.applicationFile.upsert({
-        where: { applicationId_kind: { applicationId, kind } },
+        where,
         create: { applicationId, kind, ...row },
         update: row,
       });
     }
+    return replaced;
+  }
+
+  /** Best effort: a file that cannot be removed is only logged. */
+  private async discardFiles(paths: string[]) {
+    await Promise.all(
+      paths.map((p) =>
+        this.storage
+          .remove(p)
+          .catch((e: Error) =>
+            this.logger.warn(`Could not remove ${p}: ${e.message}`),
+          ),
+      ),
+    );
   }
 }
 
