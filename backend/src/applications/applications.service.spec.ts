@@ -312,6 +312,65 @@ describe('ApplicationsService.create validation', () => {
 });
 
 describe('ApplicationsService.list validation', () => {
+  it('maps wire filters to the database query and the response back to wire names', async () => {
+    const { service, prisma } = setup();
+    prisma.application.findMany.mockResolvedValueOnce([
+      { ...application, submittedAt: new Date('2026-10-16T05:00:00Z') },
+    ] as never);
+    prisma.application.count.mockResolvedValueOnce(41);
+
+    const result = await service.list({
+      holat: 'yuborilgan',
+      hujjat_turi: 'БР',
+      soato_kodi: '1703401',
+      sahifa: '3',
+      hajm: '20',
+    });
+
+    const args = (
+      prisma.application.findMany.mock.calls[0] as unknown as [any]
+    )[0];
+    expect(args).toMatchObject({
+      where: { status: 'SUBMITTED', documentType: 'БР', soatoCode: '1703401' },
+      orderBy: { id: 'desc' },
+      skip: 40,
+      take: 20,
+    });
+    expect(prisma.application.count).toHaveBeenCalledWith({
+      where: args.where,
+    });
+    expect(result.jami).toBe(41);
+    expect(result.items[0]).toMatchObject({
+      id: 1,
+      holat: 'yuborilgan',
+      hujjat_turi: 'БР',
+      hudud_nomi: 'Andijon shahri',
+      muddat: '2026-10-21', // Friday + 3 business days
+    });
+  });
+
+  it('uses defaults and ignores empty filters', async () => {
+    const { service, prisma } = setup();
+    await service.list({ holat: '', hujjat_turi: '' });
+    expect(
+      (prisma.application.findMany.mock.calls[0] as unknown as [any])[0],
+    ).toMatchObject({
+      where: {
+        status: undefined,
+        documentType: undefined,
+        soatoCode: undefined,
+      },
+      skip: 0,
+      take: 20,
+    });
+  });
+
+  it('rejects an unknown document type with 422', async () => {
+    const error = await httpError(setup().service.list({ hujjat_turi: 'XX' }));
+    expect(error.status).toBe(422);
+    expect(error.body.maydonlar.hujjat_turi).toBeDefined();
+  });
+
   it('clamps a huge page number so skip stays a safe integer', async () => {
     const { service, prisma } = setup();
     await service.list({ sahifa: '99999999999999999999', hajm: '20' });

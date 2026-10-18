@@ -34,9 +34,9 @@ import { Scrollbar } from 'src/components/scrollbar';
 import { today } from '../form-schema';
 import { useRole } from '../role-store';
 import { applicationListQuery } from '../queries';
-import { DEFAULT_PAGE_SIZE } from '../list-search';
 import { StatusLabel } from '../components/status-label';
 import { DOCUMENT_TYPES, APPLICATION_STATUSES } from '../types';
+import { applyListFilter, DEFAULT_PAGE_SIZE } from '../list-search';
 
 // ----------------------------------------------------------------------
 
@@ -52,7 +52,7 @@ export function ApplicationListView({ search }: { search: ListSearch }) {
   );
 
   const setFilter = (patch: Partial<ListSearch>) =>
-    navigate({ search: (prev) => ({ ...prev, ...patch, page: patch.page }) });
+    navigate({ search: (prev) => applyListFilter(prev, patch) });
 
   const todayInTashkent = today();
   const isReviewer = role === 'REVIEWER';

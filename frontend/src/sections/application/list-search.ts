@@ -13,3 +13,10 @@ export const listSearchSchema = z.object({
 export type ListSearch = z.infer<typeof listSearchSchema>;
 
 export const DEFAULT_PAGE_SIZE = 10;
+
+/** New URL search after a filter change: any change other than the page itself goes back to page 1. */
+export const applyListFilter = (prev: ListSearch, patch: Partial<ListSearch>): ListSearch => ({
+  ...prev,
+  ...patch,
+  page: patch.page,
+});
