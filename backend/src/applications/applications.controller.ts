@@ -18,14 +18,14 @@ import { ApiBody, ApiConsumes, ApiHeader, ApiQuery, ApiTags } from '@nestjs/swag
 import type { Response } from 'express';
 import { createReadStream } from 'node:fs';
 import { ROLLAR, Rollar } from '../common/role.guard.js';
-import { SOATO } from '../soato/soato.js';
+import { SOATO_REGIONS } from '../soato/soato.js';
 import { ArizalarService, type Fayllar } from './applications.service.js';
-import { FAYL_TURLARI } from './upload-files.js';
+import { UPLOAD_FIELDS } from './api-contract.js';
 
 // 20 MB tekshiruvi servisda (422 + maydon nomi); bu — xotirani himoya qiluvchi yuqori chegara
 const fayllarInterceptor = FileFieldsInterceptor(
-  FAYL_TURLARI.map((name) => ({ name, maxCount: 1 })),
-  { limits: { fileSize: 50 * 1024 * 1024, files: FAYL_TURLARI.length } },
+  UPLOAD_FIELDS.map((name) => ({ name, maxCount: 1 })),
+  { limits: { fileSize: 50 * 1024 * 1024, files: UPLOAD_FIELDS.length } },
 );
 
 const NAMUNA = {
@@ -43,10 +43,10 @@ const NAMUNA = {
 const multipartBody = (majburiy: boolean) => ({
   schema: {
     type: 'object',
-    required: majburiy ? ['data', ...FAYL_TURLARI] : ['data'],
+    required: majburiy ? ['data', ...UPLOAD_FIELDS] : ['data'],
     properties: {
       data: { type: 'string', example: JSON.stringify(NAMUNA) },
-      ...Object.fromEntries(FAYL_TURLARI.map((t) => [t, { type: 'string', format: 'binary' }])),
+      ...Object.fromEntries(UPLOAD_FIELDS.map((t) => [t, { type: 'string', format: 'binary' }])),
     },
   },
 });
@@ -131,6 +131,6 @@ export class SoatoController {
   @Get()
   @Rollar(ROLLAR)
   royxat() {
-    return SOATO;
+    return SOATO_REGIONS;
   }
 }

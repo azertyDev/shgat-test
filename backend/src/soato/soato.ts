@@ -1,14 +1,15 @@
 import { readFileSync } from 'node:fs';
 
-export interface Soato {
-  kod: string;
+export interface SoatoRegion {
+  kod: string; // wire names of GET /api/soato (task spec, section 5)
   nomi: string;
 }
 
-export const SOATO: Soato[] = JSON.parse(
+export const SOATO_REGIONS: SoatoRegion[] = JSON.parse(
   readFileSync(new URL('../../data/soato.json', import.meta.url), 'utf8'),
 );
 
-const NOMLAR = new Map(SOATO.map((s) => [s.kod, s.nomi]));
+const NAMES = new Map(SOATO_REGIONS.map((r) => [r.kod, r.nomi]));
 
-export const soatoNomi = (kod: string): string | null => NOMLAR.get(kod) ?? null;
+export const regionName = (code: string): string | null => NAMES.get(code) ?? null;
+export const isKnownSoatoCode = (code: string): boolean => NAMES.has(code);

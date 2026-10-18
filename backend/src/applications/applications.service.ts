@@ -4,15 +4,16 @@ import { dirname, join, resolve } from 'node:path';
 import { Holat, Prisma, type Ariza, type Fayl } from '../generated/prisma/client.js';
 import { ValidatsiyaXatosi, xato } from '../common/api-error.js';
 import { PrismaService } from '../prisma.service.js';
-import { soatoNomi } from '../soato/soato.js';
+import { regionName } from '../soato/soato.js';
 import { ArcgisService, ArcgisXatosi } from './arcgis.service.js';
 import { arizaSchema, HUJJAT_TURLARI, type ArizaData } from './application.schema.js';
 import { toEsriPolygon } from './boundary.js';
-import { aniqlaFaylTuri, FAYL_TURLARI, tekshirFayl, type FaylTuri } from './upload-files.js';
-import { makeIdRaqam } from './registration-number.js';
-import { ishKuniQosh, toshkentSanasi } from './business-days.js';
+import { UPLOAD_FIELDS, type UploadField } from './api-contract.js';
+import { checkUploadedFile, detectFileType } from './upload-files.js';
+import { buildRegistrationNumber } from './registration-number.js';
+import { addBusinessDays, tashkentDate } from './business-days.js';
 
-export type Fayllar = Partial<Record<FaylTuri, Express.Multer.File[]>>;
+export type Fayllar = Partial<Record<UploadField, Express.Multer.File[]>>;
 type Tx = Prisma.TransactionClient;
 
 const TEKSHIRISH_MUDDATI = 3; // ish kuni
@@ -99,7 +100,7 @@ export class ArizalarService {
    */
   async tasdiqla(id: number) {
     const a = await this.holatiShu(id, 'yuborilgan', 'Faqat yuborilgan arizani tasdiqlash mumkin');
-    const idRaqam = makeIdRaqam(a.hujjat_turi, a.soato_kodi, a.tasdiq_sanasi);
+    const idRaqam = buildRegistrationNumber(a.hujjat_turi, a.soato_kodi, a.tasdiq_sanasi);
 
     const band = await this.prisma.ariza.findUnique({ where: { id_raqam: idRaqam } });
     if (band) throw idTakrori(idRaqam, band.id);
@@ -144,8 +145,8 @@ export class ArizalarService {
   }
 
   async fayl(id: number, tur: string) {
-    const f = (FAYL_TURLARI as readonly string[]).includes(tur)
-      ? await this.prisma.fayl.findUnique({ where: { ariza_id_tur: { ariza_id: id, tur: tur as FaylTuri } } })
+    const f = (UPLOAD_FIELDS as readonly string[]).includes(tur)
+      ? await this.prisma.fayl.findUnique({ where: { ariza_id_tur: { ariza_id: id, tur: tur as UploadField } } })
       : null;
     if (!f) throw xato(HttpStatus.NOT_FOUND, 'Fayl topilmadi');
     return { ...f, toliqYol: join(this.uploadDir, f.yol) };
@@ -168,8 +169,8 @@ export class ArizalarService {
     } catch {
       maydonlar.data = "data maydoni to'g'ri JSON bo'lishi kerak";
     }
-    for (const tur of FAYL_TURLARI) {
-      const x = tekshirFayl(fayllar[tur]?.[0], fayllarMajburiy);
+    for (const tur of UPLOAD_FIELDS) {
+      const x = checkUploadedFile(fayllar[tur]?.[0], fayllarMajburiy);
       if (x) maydonlar[tur] = x;
     }
     if (!qiymat || Object.keys(maydonlar).length) throw new ValidatsiyaXatosi(maydonlar);
@@ -178,10 +179,10 @@ export class ArizalarService {
 
   /** Fayl nomi foydalanuvchidan olinmaydi: {uploadDir}/{arizaId}/{tur}.{ext} */
   private async saqlaFayllar(tx: Tx, arizaId: number, fayllar: Fayllar) {
-    for (const tur of FAYL_TURLARI) {
+    for (const tur of UPLOAD_FIELDS) {
       const f = fayllar[tur]?.[0];
       if (!f) continue;
-      const { ext, mime } = aniqlaFaylTuri(f.buffer)!;
+      const { ext, mime } = detectFileType(f.buffer)!;
       const yol = `${arizaId}/${tur}.${ext}`;
       const toliq = join(this.uploadDir, yol);
       await mkdir(dirname(toliq), { recursive: true });
@@ -213,11 +214,11 @@ const qisqa = (a: Ariza & { fayllar?: Fayl[] }) => ({
   hujjat_nomi: a.hujjat_nomi,
   hujjat_turi: a.hujjat_turi,
   soato_kodi: a.soato_kodi,
-  hudud_nomi: soatoNomi(a.soato_kodi),
+  hudud_nomi: regionName(a.soato_kodi),
   holat: a.holat,
   yuborilgan_vaqt: a.yuborilgan_vaqt,
   // tekshiruvchi uchun: faqat ko'rib chiqilmagan arizalarda
-  muddat: a.holat === 'yuborilgan' ? ishKuniQosh(toshkentSanasi(a.yuborilgan_vaqt), TEKSHIRISH_MUDDATI) : null,
+  muddat: a.holat === 'yuborilgan' ? addBusinessDays(tashkentDate(a.yuborilgan_vaqt), TEKSHIRISH_MUDDATI) : null,
 });
 
 const idTakrori = (idRaqam: string, arizaId?: number) =>

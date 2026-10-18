@@ -1,7 +1,8 @@
 type Position = [number, number];
 type Ring = Position[];
 
-export type Chegara =
+/** GeoJSON geometry accepted as a document boundary. */
+export type Boundary =
   | { type: 'Polygon'; coordinates: Ring[] }
   | { type: 'MultiPolygon'; coordinates: Ring[][] };
 
@@ -10,15 +11,15 @@ export interface EsriPolygon {
   spatialReference: { wkid: 102100 };
 }
 
-// O'zbekiston hududi (topshiriq 4.1)
-const LON = [55.9, 73.2];
-const LAT = [37.1, 45.6];
+// Uzbekistan bounding box (task spec, section 4.1)
+const LON_RANGE = [55.9, 73.2];
+const LAT_RANGE = [37.1, 45.6];
 
 const isPosition = (p: unknown): p is Position =>
   Array.isArray(p) && p.length >= 2 && Number.isFinite(p[0]) && Number.isFinite(p[1]);
 
-/** Xato matnini qaytaradi yoki chegara to'g'ri bo'lsa null. */
-export function validateChegara(g: unknown): string | null {
+/** Returns a user-facing error message, or null when the boundary is valid. */
+export function validateBoundary(g: unknown): string | null {
   if (!g || typeof g !== 'object') return 'Chegara GeoJSON obyekt bo\'lishi kerak';
   const { type, coordinates } = g as { type?: unknown; coordinates?: unknown };
   if (type !== 'Polygon' && type !== 'MultiPolygon') return 'Chegara turi Polygon yoki MultiPolygon bo\'lishi kerak';
@@ -32,24 +33,24 @@ export function validateChegara(g: unknown): string | null {
       if (ring.length < 4) return 'Halqada kamida 4 nuqta bo\'lishi kerak';
       const [first, last] = [ring[0], ring[ring.length - 1]];
       if (first[0] !== last[0] || first[1] !== last[1]) return 'Halqa yopilmagan: birinchi va oxirgi nuqta bir xil bo\'lishi kerak';
-      if (ring.some(([lon, lat]) => lon < LON[0] || lon > LON[1] || lat < LAT[0] || lat > LAT[1]))
+      if (ring.some(([lon, lat]) => lon < LON_RANGE[0] || lon > LON_RANGE[1] || lat < LAT_RANGE[0] || lat > LAT_RANGE[1]))
         return 'Chegara O\'zbekiston hududidan tashqarida';
     }
   }
   return null;
 }
 
-const R = 6378137;
+const EARTH_RADIUS = 6378137;
 
-/** WGS-84 (4326) → Web Mercator (3857), metrlarda. */
+/** WGS-84 (4326) -> Web Mercator (3857), in metres. */
 export function toWebMercator([lon, lat]: Position): Position {
   return [
-    (lon * Math.PI * R) / 180,
-    R * Math.log(Math.tan(Math.PI / 4 + (lat * Math.PI) / 360)),
+    (lon * Math.PI * EARTH_RADIUS) / 180,
+    EARTH_RADIUS * Math.log(Math.tan(Math.PI / 4 + (lat * Math.PI) / 360)),
   ];
 }
 
-/** Shoelace: musbat — soat miliga teskari, manfiy — soat mili bo'yicha (y yuqoriga). */
+/** Shoelace formula: positive for counter-clockwise, negative for clockwise rings (y axis up). */
 export function signedArea(ring: Ring): number {
   let s = 0;
   for (let i = 0; i < ring.length - 1; i++) s += ring[i][0] * ring[i + 1][1] - ring[i + 1][0] * ring[i][1];
@@ -57,10 +58,10 @@ export function signedArea(ring: Ring): number {
 }
 
 /**
- * GeoJSON → Esri JSON. Esri'da tashqi halqa soat mili bo'yicha, ichki (teshik) — teskari;
- * GeoJSON (RFC 7946) aksincha, lekin fayllar har doim ham qoidaga amal qilmaydi, shuning uchun yo'nalish hisoblanadi.
+ * GeoJSON -> Esri JSON. Esri wants outer rings clockwise and holes counter-clockwise; GeoJSON (RFC 7946)
+ * is the other way round, but real files do not always follow it, so the orientation is computed.
  */
-export function toEsriPolygon(g: Chegara): EsriPolygon {
+export function toEsriPolygon(g: Boundary): EsriPolygon {
   const polygons = g.type === 'Polygon' ? [g.coordinates] : g.coordinates;
   const rings = polygons.flatMap((polygon) =>
     polygon.map((ring, i) => {
