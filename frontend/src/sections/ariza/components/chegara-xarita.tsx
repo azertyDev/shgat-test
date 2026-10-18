@@ -47,6 +47,7 @@ function chegaraga(geometry: unknown): Chegara | null {
 export function ChegaraXarita({ value, onChange, error }: Props) {
   const { t, tr } = useTranslate();
   const viewRef = useRef<MapView | null>(null);
+  const sketchRef = useRef<HTMLArcgisSketchElement>(null);
   const yaqinlash = useRef(true); // fayldan yoki saqlangan qiymat — xaritani unga yaqinlashtiramiz
   const [faylXato, setFaylXato] = useState('');
   const layer = useMemo(() => new GraphicsLayer({ title: 'Chegara' }), []);
@@ -124,6 +125,8 @@ export function ChegaraXarita({ value, onChange, error }: Props) {
             if (!el.ready) return;
             viewRef.current = el.view;
             if (!el.map?.layers.includes(layer)) el.map?.add(layer);
+            // `layer` prop'i xarita tayyor bo'lguncha qo'llanmaydi — qatlam xaritaga qo'shilgach beriladi
+            if (sketchRef.current) sketchRef.current.layer = layer;
             if (value) {
               const ext = poligonga(value).extent;
               if (ext) el.view.goTo(ext.clone().expand(1.4)).catch(() => {});
@@ -133,8 +136,9 @@ export function ChegaraXarita({ value, onChange, error }: Props) {
         >
           <arcgis-zoom slot="top-left" />
           <arcgis-sketch
+            ref={sketchRef}
             slot="top-right"
-            layer={layer}
+            defaultGraphicsLayerDisabled
             creationMode="single"
             availableCreateTools={['polygon', 'rectangle']}
             hideSelectionToolsLassoSelection
