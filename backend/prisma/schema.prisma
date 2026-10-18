@@ -1,0 +1,57 @@
+datasource db {
+  provider = "postgresql"
+}
+
+generator client {
+  provider            = "prisma-client"
+  output              = "../src/generated/prisma"
+  moduleFormat        = "esm"
+  importFileExtension = "js"
+}
+
+enum Holat {
+  yuborilgan
+  hisobga_olingan
+  qaytarilgan
+}
+
+enum FaylTuri {
+  asosiy_chizma
+  tushuntirish_xati
+  tasdiqlovchi_hujjat
+}
+
+model Ariza {
+  id               Int      @id @default(autoincrement())
+  hujjat_nomi      String   @db.VarChar(255)
+  hujjat_turi      String   @db.VarChar(8)
+  soato_kodi       String   @db.Char(7)
+  tasdiq_sanasi    DateTime @db.Date
+  tasdiq_hujjati   String   @db.VarChar(100)
+  chegara          Json
+  holat            Holat    @default(yuborilgan)
+  id_raqam         String?  @unique @db.VarChar(32)
+  arcgis_object_id Int?
+  qaytarish_sababi String?
+  yuborilgan_vaqt  DateTime @default(now())
+  created_at       DateTime @default(now())
+  updated_at       DateTime @updatedAt
+  fayllar          Fayl[]
+
+  @@index([holat])
+  @@index([hujjat_turi])
+  @@index([soato_kodi])
+}
+
+model Fayl {
+  id       Int      @id @default(autoincrement())
+  ariza_id Int
+  ariza    Ariza    @relation(fields: [ariza_id], references: [id], onDelete: Cascade)
+  tur      FaylTuri
+  nomi     String
+  mime     String
+  hajm     Int
+  yol      String
+
+  @@unique([ariza_id, tur])
+}
