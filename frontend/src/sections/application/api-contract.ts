@@ -168,3 +168,5 @@ export function toPayload(v: ApplicationFormValues): FormData {
 }
 
 export const toReturnBody = (reason: string) => JSON.stringify({ sabab: reason });
+
+export const toTokenRequest = (role: Role) => JSON.stringify({ rol: ROLE_HEADER[role] });

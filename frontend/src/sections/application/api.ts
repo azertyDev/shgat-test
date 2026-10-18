@@ -3,10 +3,9 @@ import type { PageDto, SoatoDto, StatusDto, ApprovalDto } from './api-contract';
 
 import { CONFIG } from 'src/global-config';
 
-import { getRole } from './role-store';
+import { hasToken, authHeaders, refreshToken } from './role-store';
 import {
   toPayload,
-  ROLE_HEADER,
   fromPageDto,
   fromSoatoDto,
   toListParams,
@@ -39,9 +38,15 @@ const toApiError = (status: number, body: unknown) => {
 };
 
 async function request<T>(path: string, init?: RequestInit): Promise<T> {
+  const send = () => fetch(BASE_URL + path, { ...init, headers: { ...authHeaders(), ...init?.headers } });
   let res: Response;
   try {
-    res = await fetch(BASE_URL + path, { ...init, headers: { 'X-Rol': ROLE_HEADER[getRole()], ...init?.headers } });
+    res = await send();
+    // expired token: get a fresh one and retry once
+    if (res.status === 401 && hasToken()) {
+      await refreshToken();
+      res = await send();
+    }
   } catch {
     throw new ApiError(0, NO_CONNECTION);
   }
@@ -50,12 +55,22 @@ async function request<T>(path: string, init?: RequestInit): Promise<T> {
   return body as T;
 }
 
-/** fetch has no upload progress, so multipart requests go through XHR. */
-function upload<T>(method: 'POST' | 'PUT', path: string, body: FormData, onProgress?: (percent: number) => void) {
+/** fetch has no upload progress, so multipart requests go through XHR. Retries once on an expired token. */
+async function upload<T>(method: 'POST' | 'PUT', path: string, body: FormData, onProgress?: (percent: number) => void) {
+  try {
+    return await uploadOnce<T>(method, path, body, onProgress);
+  } catch (e) {
+    if (!(e instanceof ApiError && e.status === 401 && hasToken())) throw e;
+    await refreshToken();
+    return uploadOnce<T>(method, path, body, onProgress);
+  }
+}
+
+function uploadOnce<T>(method: 'POST' | 'PUT', path: string, body: FormData, onProgress?: (percent: number) => void) {
   return new Promise<T>((resolve, reject) => {
     const xhr = new XMLHttpRequest();
     xhr.open(method, BASE_URL + path);
-    xhr.setRequestHeader('X-Rol', ROLE_HEADER[getRole()]);
+    Object.entries(authHeaders()).forEach(([name, value]) => xhr.setRequestHeader(name, value));
     xhr.responseType = 'json';
     xhr.upload.onprogress = (e) => e.lengthComputable && onProgress?.(Math.round((e.loaded * 100) / e.total));
     xhr.onload = () => (xhr.status < 300 ? resolve(xhr.response as T) : reject(toApiError(xhr.status, xhr.response)));
