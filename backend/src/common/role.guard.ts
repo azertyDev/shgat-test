@@ -1,7 +1,7 @@
 import { CanActivate, ExecutionContext, HttpStatus, Injectable } from '@nestjs/common';
 import { Reflector } from '@nestjs/core';
 import type { Request } from 'express';
-import { xato } from './xatolar.js';
+import { xato } from './api-error.js';
 
 export const ROLLAR = ['ariza_beruvchi', 'tekshiruvchi'] as const;
 export type Rol = (typeof ROLLAR)[number];

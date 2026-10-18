@@ -1,4 +1,4 @@
-import { signedArea, toEsriPolygon, toWebMercator, validateChegara, type Chegara } from './chegara.js';
+import { signedArea, toEsriPolygon, toWebMercator, validateChegara, type Chegara } from './boundary.js';
 
 const andijon: Chegara = {
   type: 'Polygon',

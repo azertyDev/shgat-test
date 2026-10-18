@@ -1,4 +1,4 @@
-import { ishKuniQosh, toshkentSanasi } from './muddat.js';
+import { ishKuniQosh, toshkentSanasi } from './business-days.js';
 
 describe('ishKuniQosh', () => {
   it.each([

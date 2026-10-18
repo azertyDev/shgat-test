@@ -17,10 +17,10 @@ import { FileFieldsInterceptor } from '@nestjs/platform-express';
 import { ApiBody, ApiConsumes, ApiHeader, ApiQuery, ApiTags } from '@nestjs/swagger';
 import type { Response } from 'express';
 import { createReadStream } from 'node:fs';
-import { ROLLAR, Rollar } from '../common/rol.guard.js';
+import { ROLLAR, Rollar } from '../common/role.guard.js';
 import { SOATO } from '../soato/soato.js';
-import { ArizalarService, type Fayllar } from './arizalar.service.js';
-import { FAYL_TURLARI } from './fayllar.js';
+import { ArizalarService, type Fayllar } from './applications.service.js';
+import { FAYL_TURLARI } from './upload-files.js';
 
 // 20 MB tekshiruvi servisda (422 + maydon nomi); bu — xotirani himoya qiluvchi yuqori chegara
 const fayllarInterceptor = FileFieldsInterceptor(

@@ -1,5 +1,5 @@
 import { ArcgisService, ArcgisXatosi, sqlVaqt } from './arcgis.service.js';
-import { toEsriPolygon } from './chegara.js';
+import { toEsriPolygon } from './boundary.js';
 
 const geom = toEsriPolygon({
   type: 'Polygon',

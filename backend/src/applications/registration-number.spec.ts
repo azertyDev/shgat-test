@@ -1,4 +1,4 @@
-import { makeIdRaqam } from './id-raqam.js';
+import { makeIdRaqam } from './registration-number.js';
 
 describe('makeIdRaqam', () => {
   it('{tur}-{soato}-{tasdiq yili}', () => {

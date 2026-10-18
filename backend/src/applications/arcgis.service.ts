@@ -1,5 +1,5 @@
 import { Injectable, Logger } from '@nestjs/common';
-import type { EsriPolygon } from './chegara.js';
+import type { EsriPolygon } from './boundary.js';
 
 export class ArcgisXatosi extends Error {}
 

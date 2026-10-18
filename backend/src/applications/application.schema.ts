@@ -1,7 +1,7 @@
 import { z } from 'zod';
 import { SOATO } from '../soato/soato.js';
-import { Chegara, validateChegara } from './chegara.js';
-import { toshkentSanasi } from './muddat.js';
+import { Chegara, validateChegara } from './boundary.js';
+import { toshkentSanasi } from './business-days.js';
 
 export const HUJJAT_TURLARI = ['БСХ', 'ҲРС', 'ТРЛ', 'БР', 'БРЛ', 'ҚР', 'ЛШ'] as const;
 

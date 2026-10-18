@@ -2,7 +2,7 @@ import { HttpException } from '@nestjs/common';
 import { Prisma } from '../generated/prisma/client.js';
 import type { PrismaService } from '../prisma.service.js';
 import { ArcgisXatosi, type ArcgisService } from './arcgis.service.js';
-import { ArizalarService } from './arizalar.service.js';
+import { ArizalarService } from './applications.service.js';
 
 const ariza = {
   id: 1,
