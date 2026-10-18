@@ -24,7 +24,7 @@ function useErrorText() {
   const { t, localize } = useTranslate();
   return (e: unknown) => {
     if (!(e instanceof ApiError)) return { summary: t('error.generic'), detail: '' };
-    if (e.status === 409 && /ID raqami/.test(e.message)) return { summary: t('review.duplicate'), detail: localize(e.message) };
+    if (e.code === 'DUPLICATE_NUMBER') return { summary: t('review.duplicate'), detail: localize(e.message) };
     if (e.status === 502) return { summary: t('review.arcgisFailed'), detail: localize(e.message) };
     return { summary: localize(e.message), detail: '' };
   };

@@ -8,6 +8,11 @@ import type {
   FileKind,
 } from '../generated/prisma/client.js';
 
+/** Machine-readable error codes (`kod` in the error body). */
+export const ERROR_CODES = {
+  DUPLICATE_NUMBER: 'id_takrori',
+} as const;
+
 /** Multipart field names of the three required documents. */
 export const UPLOAD_FIELDS = [
   'asosiy_chizma',

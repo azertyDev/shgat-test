@@ -144,6 +144,7 @@ describe('ApplicationsService.approve', () => {
     const error = await httpError(service.approve(1));
     expect(error.status).toBe(409);
     expect(error.body.xato).toContain('БР-1703401-2026');
+    expect(error.body.kod).toBe('id_takrori');
     expect(arcgis.addFeature).not.toHaveBeenCalled();
   });
 

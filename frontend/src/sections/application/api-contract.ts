@@ -81,7 +81,11 @@ export type PageDto = { items: SummaryDto[]; jami: number };
 export type SoatoDto = { kod: string; nomi: string };
 export type StatusDto = { id: number; holat: ApiStatus };
 export type ApprovalDto = { id_raqam: string; arcgis_object_id: number };
-export type ErrorDto = { xato?: string; maydonlar?: Record<string, string> };
+export type ErrorDto = { xato?: string; maydonlar?: Record<string, string>; kod?: string };
+
+/** Machine-readable error codes (`kod`) the UI reacts to. */
+export type ApiErrorCode = 'DUPLICATE_NUMBER';
+const ERROR_CODE_FROM_API: Record<string, ApiErrorCode> = { id_takrori: 'DUPLICATE_NUMBER' };
 
 const fromSummaryDto = (d: SummaryDto): ApplicationSummary => ({
   id: d.id,
@@ -126,7 +130,11 @@ export const fromErrorFields = (fields: Record<string, string> = {}) =>
 /** Unified error body {"xato", "maydonlar"} -> message and form-field errors. */
 export function fromErrorDto(body: unknown, status: number) {
   const b = body as ErrorDto | null;
-  return { message: b?.xato ?? `HTTP ${status}`, fieldErrors: b?.maydonlar && fromErrorFields(b.maydonlar) };
+  return {
+    message: b?.xato ?? `HTTP ${status}`,
+    fieldErrors: b?.maydonlar && fromErrorFields(b.maydonlar),
+    code: b?.kod ? ERROR_CODE_FROM_API[b.kod] : undefined,
+  };
 }
 
 // ---- requests -------------------------------------------------------------

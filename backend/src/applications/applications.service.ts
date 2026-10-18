@@ -10,6 +10,7 @@ import { apiError, FieldValidationError } from '../common/errors/api-error.js';
 import { PrismaService } from '../prisma/prisma.service.js';
 import {
   API_STATUSES,
+  ERROR_CODES,
   FIELD_TO_FILE_KIND,
   isUploadField,
   STATUS_TO_API,
@@ -475,4 +476,5 @@ const duplicateNumber = (registrationNumber: string, applicationId?: number) =>
   apiError(
     HttpStatus.CONFLICT,
     `${registrationNumber} ID raqami allaqachon mavjud${applicationId ? ` (ariza #${applicationId})` : ''}: shu tur, hudud va yil uchun hujjat hisobga olingan`,
+    ERROR_CODES.DUPLICATE_NUMBER,
   );

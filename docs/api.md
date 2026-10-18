@@ -13,6 +13,7 @@ Xato formati yagona:
 ```
 
 `maydonlar` faqat validatsiya xatolarida (422) bo'ladi.
+Ixtiyoriy `kod` — matnni tahlil qilmasdan aniqlash uchun mashina kodi: `id_takrori` (409, ID raqam band).
 
 ## Ariza holatlari
 

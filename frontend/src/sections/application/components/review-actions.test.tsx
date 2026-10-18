@@ -15,7 +15,7 @@ describe('ReviewActions', () => {
 
   it('explains a duplicate number (409) in plain language', async () => {
     fetchMock.mockResolvedValue(
-      jsonResponse(409, { xato: 'БР-1703401-2026 ID raqami allaqachon mavjud (ariza #1)' })
+      jsonResponse(409, { xato: 'БР-1703401-2026 band (ariza #1)', kod: 'id_takrori' })
     );
     renderWithProviders(<ReviewActions id={2} />);
 

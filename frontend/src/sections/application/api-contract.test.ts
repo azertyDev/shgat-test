@@ -1,4 +1,4 @@
-import { toPayload, toListParams, fromDetailsDto, fromErrorFields } from './api-contract';
+import { toPayload, fromErrorDto, toListParams, fromDetailsDto, fromErrorFields } from './api-contract';
 
 const boundary = { type: 'Polygon' as const, coordinates: [[[72.3, 40.75], [72.4, 40.75], [72.4, 40.81], [72.3, 40.75]] as [number, number][]] };
 const file = new File(['%PDF-1.4'], 'a.pdf', { type: 'application/pdf' });
@@ -62,5 +62,11 @@ describe('api contract', () => {
       mainDrawing: 'y',
       data: 'z',
     });
+  });
+
+  it('maps the machine-readable error code', () => {
+    expect(fromErrorDto({ xato: 'x', kod: 'id_takrori' }, 409).code).toBe('DUPLICATE_NUMBER');
+    expect(fromErrorDto({ xato: 'x' }, 409).code).toBeUndefined();
+    expect(fromErrorDto({ xato: 'x', kod: 'unknown' }, 409).code).toBeUndefined();
   });
 });

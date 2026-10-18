@@ -1,5 +1,5 @@
 import type { ApplicationFormValues } from './form-schema';
-import type { PageDto, SoatoDto, StatusDto, ApprovalDto } from './api-contract';
+import type { PageDto, SoatoDto, StatusDto, ApprovalDto, ApiErrorCode } from './api-contract';
 
 import { CONFIG } from 'src/global-config';
 
@@ -23,7 +23,8 @@ export class ApiError extends Error {
   constructor(
     readonly status: number,
     message: string,
-    readonly fieldErrors?: Record<string, string>
+    readonly fieldErrors?: Record<string, string>,
+    readonly code?: ApiErrorCode
   ) {
     super(message);
   }
@@ -33,8 +34,8 @@ const BASE_URL = `${CONFIG.serverUrl}/api`;
 const NO_CONNECTION = "Server bilan aloqa yo'q";
 
 const toApiError = (status: number, body: unknown) => {
-  const { message, fieldErrors } = fromErrorDto(body, status);
-  return new ApiError(status, message, fieldErrors);
+  const { message, fieldErrors, code } = fromErrorDto(body, status);
+  return new ApiError(status, message, fieldErrors, code);
 };
 
 async function request<T>(path: string, init?: RequestInit): Promise<T> {
