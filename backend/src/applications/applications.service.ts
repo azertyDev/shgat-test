@@ -16,7 +16,7 @@ import {
 } from './api-contract.js';
 import { toDetailsDto, toStatusDto, toSummaryDto } from './application.mapper.js';
 import { applicationPayloadSchema, DOCUMENT_TYPES, type ApplicationInput } from './application.schema.js';
-import { ArcgisError, ArcgisService } from './arcgis.service.js';
+import { ArcgisError, ArcgisService } from '../arcgis/arcgis.service.js';
 import { toEsriPolygon } from '../geo/esri-geometry.js';
 import { buildRegistrationNumber } from './registration-number.js';
 import { checkUploadedFile, detectFileType } from './upload-files.js';
