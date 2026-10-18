@@ -1,0 +1,11 @@
+node_modules/
+dist/
+coverage/
+.env
+backend/uploads/
+backend/src/generated/
+*.log
+.DS_Store
+*.tsbuildinfo
+.tanstack/
+.omc/
