@@ -3,6 +3,7 @@ import { Prisma } from '../generated/prisma/client.js';
 import type { PrismaService } from '../prisma/prisma.service.js';
 import { ArcgisError, type ArcgisService } from '../arcgis/arcgis.service.js';
 import { SoatoService } from '../soato/soato.service.js';
+import { FileStorageService } from '../storage/file-storage.service.js';
 import { ApplicationsService } from './applications.service.js';
 
 const application = {
@@ -42,6 +43,7 @@ function setup(overrides: Partial<typeof application> = {}) {
     prisma as unknown as PrismaService,
     arcgis as unknown as ArcgisService,
     new SoatoService(),
+    new FileStorageService(),
   );
   return { service, prisma, arcgis };
 }

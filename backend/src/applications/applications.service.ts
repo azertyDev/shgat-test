@@ -1,6 +1,4 @@
 import { HttpStatus, Injectable } from '@nestjs/common';
-import { mkdir, rm, writeFile } from 'node:fs/promises';
-import { dirname, join, resolve } from 'node:path';
 import { Prisma, type Application, type ApplicationStatus } from '../generated/prisma/client.js';
 import { apiError, FieldValidationError } from '../common/errors/api-error.js';
 import { PrismaService } from '../prisma/prisma.service.js';
@@ -20,7 +18,8 @@ import { SoatoService } from '../soato/soato.service.js';
 import { ArcgisError, ArcgisService } from '../arcgis/arcgis.service.js';
 import { toEsriPolygon } from '../geo/esri-geometry.js';
 import { buildRegistrationNumber } from './registration-number.js';
-import { checkUploadedFile, detectFileType } from './upload-files.js';
+import { FileStorageService } from '../storage/file-storage.service.js';
+import { checkUploadedFile, detectFileType } from '../storage/file-type.js';
 
 export type UploadedFileMap = Partial<Record<UploadField, Express.Multer.File[]>>;
 type Tx = Prisma.TransactionClient;
@@ -30,7 +29,6 @@ const STATE_CHANGED = "Ariza holati o'zgargan, sahifani yangilang";
 
 @Injectable()
 export class ApplicationsService {
-  private readonly uploadDir = resolve(process.env.UPLOAD_DIR ?? 'uploads');
   private readonly payloadSchema: ReturnType<typeof createApplicationPayloadSchema>;
   private readonly regionName = (code: string) => this.soato.regionName(code);
 
@@ -38,6 +36,7 @@ export class ApplicationsService {
     private readonly prisma: PrismaService,
     private readonly arcgis: ArcgisService,
     private readonly soato: SoatoService,
+    private readonly storage: FileStorageService,
   ) {
     this.payloadSchema = createApplicationPayloadSchema((code) => soato.exists(code));
   }
@@ -161,7 +160,7 @@ export class ApplicationsService {
         })
       : null;
     if (!file) throw apiError(HttpStatus.NOT_FOUND, 'Fayl topilmadi');
-    return { ...file, absolutePath: join(this.uploadDir, file.storagePath) };
+    return { ...file, absolutePath: this.storage.absolutePath(file.storagePath) };
   }
 
   private async requireStatus(id: number, status: ApplicationStatus, message: string): Promise<Application> {
@@ -190,7 +189,7 @@ export class ApplicationsService {
     return input;
   }
 
-  /** The stored name never comes from the user: {uploadDir}/{applicationId}/{kind}.{ext} */
+  /** The stored name never comes from the user: {applicationId}/{kind}.{ext} */
   private async storeFiles(tx: Tx, applicationId: number, files: UploadedFileMap) {
     for (const field of UPLOAD_FIELDS) {
       const upload = files[field]?.[0];
@@ -198,11 +197,9 @@ export class ApplicationsService {
       const kind = FIELD_TO_FILE_KIND[field];
       const { ext, mime } = detectFileType(upload.buffer)!;
       const storagePath = `${applicationId}/${kind.toLowerCase()}.${ext}`;
-      const absolutePath = join(this.uploadDir, storagePath);
-      await mkdir(dirname(absolutePath), { recursive: true });
-      await writeFile(absolutePath, upload.buffer);
+      await this.storage.save(storagePath, upload.buffer);
       const previous = await tx.applicationFile.findUnique({ where: { applicationId_kind: { applicationId, kind } } });
-      if (previous && previous.storagePath !== storagePath) await rm(join(this.uploadDir, previous.storagePath), { force: true });
+      if (previous && previous.storagePath !== storagePath) await this.storage.remove(previous.storagePath);
       const row = { originalName: upload.originalname.slice(0, 255), mimeType: mime, size: upload.size, storagePath };
       await tx.applicationFile.upsert({
         where: { applicationId_kind: { applicationId, kind } },
