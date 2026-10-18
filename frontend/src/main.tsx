@@ -4,12 +4,12 @@ import { createRouter, RouterProvider } from '@tanstack/react-router';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 
 import { routeTree } from './route-tree.gen';
-import { refreshToken } from './sections/application/role-store';
+import { ensureToken } from './sections/application/role-store';
 
 // ----------------------------------------------------------------------
 
-// token for the stored role; until it arrives (or if it cannot be had) requests use X-Rol
-void refreshToken();
+// token for the stored role: reused from localStorage while valid; until one exists requests use X-Rol
+void ensureToken();
 
 // Data stays fresh for 30 s: switching tabs or pages reuses the cache instead of asking the server again.
 // Our own changes do not wait for it: every mutation invalidates the application queries (queries.ts).
