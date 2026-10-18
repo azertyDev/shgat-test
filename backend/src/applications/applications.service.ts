@@ -5,7 +5,7 @@ import { Holat, Prisma, type Ariza, type Fayl } from '../generated/prisma/client
 import { apiError, FieldValidationError } from '../common/api-error.js';
 import { PrismaService } from '../prisma.service.js';
 import { regionName } from '../soato/soato.js';
-import { ArcgisService, ArcgisXatosi } from './arcgis.service.js';
+import { ArcgisService, ArcgisError } from './arcgis.service.js';
 import { arizaSchema, HUJJAT_TURLARI, type ArizaData } from './application.schema.js';
 import { toEsriPolygon } from './boundary.js';
 import { UPLOAD_FIELDS, type UploadField } from './api-contract.js';
@@ -112,9 +112,9 @@ export class ArizalarService {
     let objectId: number;
     try {
       const description = `${idRaqam} | ${a.hujjat_nomi}`.slice(0, DESCRIPTION_MAX);
-      objectId = await this.arcgis.yoz(description, toEsriPolygon(a.chegara as never), boshlandi);
+      objectId = await this.arcgis.addFeature(description, toEsriPolygon(a.chegara as never), boshlandi);
     } catch (e) {
-      if (e instanceof ArcgisXatosi) throw apiError(HttpStatus.BAD_GATEWAY, `ArcGIS qatlamiga yozib bo'lmadi (${e.message.replace(/\.+$/, '')}). Keyinroq qayta urinib ko'ring.`);
+      if (e instanceof ArcgisError) throw apiError(HttpStatus.BAD_GATEWAY, `ArcGIS qatlamiga yozib bo'lmadi (${e.message.replace(/\.+$/, '')}). Keyinroq qayta urinib ko'ring.`);
       throw e;
     }
 

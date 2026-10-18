@@ -1,14 +1,14 @@
-import { ArcgisService, ArcgisXatosi, sqlVaqt } from './arcgis.service.js';
+import { ArcgisError, ArcgisService, toSqlTimestamp } from './arcgis.service.js';
 import { toEsriPolygon } from './boundary.js';
 
-const geom = toEsriPolygon({
+const geometry = toEsriPolygon({
   type: 'Polygon',
   coordinates: [[[72.3, 40.75], [72.4, 40.75], [72.4, 40.81], [72.3, 40.81], [72.3, 40.75]]],
 });
-const boshlandi = new Date('2026-10-18T08:00:00Z');
-const javob = (body: unknown) => new Response(JSON.stringify(body), { status: 200 });
+const firstAttemptAt = new Date('2026-10-18T08:00:00Z');
+const jsonResponse = (body: unknown) => new Response(JSON.stringify(body), { status: 200 });
 
-describe('ArcgisService.yoz', () => {
+describe('ArcgisService.addFeature', () => {
   const fetchMock = vi.fn<typeof fetch>();
   beforeEach(() => {
     fetchMock.mockReset();
@@ -16,16 +16,16 @@ describe('ArcgisService.yoz', () => {
   });
   afterEach(() => vi.unstubAllGlobals());
 
-  const amal = (i: number) => String(fetchMock.mock.calls[i][0]).split('/').pop();
+  const operation = (i: number) => String(fetchMock.mock.calls[i][0]).split('/').pop();
 
-  it("obyekt yo'q bo'lsa applyEdits bilan qo'shadi va objectId qaytaradi", async () => {
+  it('adds the feature via applyEdits when none exists and returns its objectId', async () => {
     fetchMock
-      .mockResolvedValueOnce(javob({ objectIds: null }))
-      .mockResolvedValueOnce(javob({ addResults: [{ success: true, objectId: 42 }] }));
+      .mockResolvedValueOnce(jsonResponse({ objectIds: null }))
+      .mockResolvedValueOnce(jsonResponse({ addResults: [{ success: true, objectId: 42 }] }));
 
-    await expect(new ArcgisService().yoz('БР-1703401-2026 | test', geom, boshlandi)).resolves.toBe(42);
-    expect([amal(0), amal(1)]).toEqual(['query', 'applyEdits']);
-    // umumiy serverda boshqalarning xuddi shu ID'li obyektini topib olmaslik uchun: aniq matn + vaqt
+    await expect(new ArcgisService().addFeature('БР-1703401-2026 | test', geometry, firstAttemptAt)).resolves.toBe(42);
+    expect([operation(0), operation(1)]).toEqual(['query', 'applyEdits']);
+    // exact text + time, so a feature with the same number written by someone else on the shared server is not reused
     expect((fetchMock.mock.calls[0][1]!.body as URLSearchParams).get('where')).toBe(
       "description = 'БР-1703401-2026 | test' AND created_date >= timestamp '2026-10-18 07:55:00'",
     );
@@ -36,34 +36,34 @@ describe('ArcgisService.yoz', () => {
     expect(add.geometry.spatialReference.wkid).toBe(102100);
   });
 
-  it('timeoutdan keyin qayta urinishda ikkinchi obyekt yaratmaydi', async () => {
+  it('does not create a second feature when retrying after a timeout', async () => {
     fetchMock
-      .mockResolvedValueOnce(javob({ objectIds: null }))
-      .mockRejectedValueOnce(new DOMException('timeout', 'TimeoutError')) // obyekt yaratildi, javob kelmadi
-      .mockResolvedValueOnce(javob({ objectIds: [77] }));
+      .mockResolvedValueOnce(jsonResponse({ objectIds: null }))
+      .mockRejectedValueOnce(new DOMException('timeout', 'TimeoutError')) // feature created, response lost
+      .mockResolvedValueOnce(jsonResponse({ objectIds: [77] }));
 
-    await expect(new ArcgisService().yoz('x', geom, boshlandi)).resolves.toBe(77);
-    expect(fetchMock.mock.calls.map((_, i) => amal(i))).toEqual(['query', 'applyEdits', 'query']);
+    await expect(new ArcgisService().addFeature('x', geometry, firstAttemptAt)).resolves.toBe(77);
+    expect(fetchMock.mock.calls.map((_, i) => operation(i))).toEqual(['query', 'applyEdits', 'query']);
   });
 
-  it('har urinish xato bersa ArcgisXatosi', async () => {
-    fetchMock.mockImplementation(async () => javob({ error: { code: 500, message: 'Unable to complete operation.' } }));
-    await expect(new ArcgisService().yoz('x', geom, boshlandi)).rejects.toBeInstanceOf(ArcgisXatosi);
+  it('throws ArcgisError when every attempt fails', async () => {
+    fetchMock.mockImplementation(async () => jsonResponse({ error: { code: 500, message: 'Unable to complete operation.' } }));
+    await expect(new ArcgisService().addFeature('x', geometry, firstAttemptAt)).rejects.toBeInstanceOf(ArcgisError);
     expect(fetchMock).toHaveBeenCalledTimes(3); // 1 + ARCGIS_RETRIES (2)
   });
 
-  it('addResults success=false — xato', async () => {
+  it('treats addResults success=false as an error', async () => {
     fetchMock.mockImplementation(async (url) =>
       String(url).endsWith('query')
-        ? javob({ objectIds: null })
-        : javob({ addResults: [{ success: false, error: { description: 'Geometry is invalid' } }] }),
+        ? jsonResponse({ objectIds: null })
+        : jsonResponse({ addResults: [{ success: false, error: { description: 'Geometry is invalid' } }] }),
     );
-    await expect(new ArcgisService().yoz('x', geom, boshlandi)).rejects.toThrow('Geometry is invalid');
+    await expect(new ArcgisService().addFeature('x', geometry, firstAttemptAt)).rejects.toThrow('Geometry is invalid');
   });
 });
 
-describe('sqlVaqt', () => {
-  it('5 daqiqa zaxira bilan UTC', () => {
-    expect(sqlVaqt(new Date('2026-01-01T00:02:03.456Z'))).toBe('2025-12-31 23:57:03');
+describe('toSqlTimestamp', () => {
+  it('formats UTC with a 5 minute clock-skew allowance', () => {
+    expect(toSqlTimestamp(new Date('2026-01-01T00:02:03.456Z'))).toBe('2025-12-31 23:57:03');
   });
 });
