@@ -6,6 +6,9 @@ import { SoatoService } from '../soato/soato.service.js';
 import { FileStorageService } from '../storage/file-storage.service.js';
 import type { GeometryValidator } from '../geo/geometry-validator.service.js';
 import { ApplicationsService } from './applications.service.js';
+import { fileKindFromApi, uploadsFromApi } from './api-contract.js';
+import { parseListQuery } from './dto/list-query.dto.js';
+import { toPageDto } from './mappers/application.mapper.js';
 
 const application = {
   id: 1,
@@ -101,8 +104,8 @@ describe('ApplicationsService.approve', () => {
   it('builds the number, writes to ArcGIS, then changes the status', async () => {
     const { service, prisma, arcgis } = setup();
     await expect(service.approve(1)).resolves.toEqual({
-      id_raqam: 'БР-1703401-2026',
-      arcgis_object_id: 555,
+      registrationNumber: 'БР-1703401-2026',
+      arcgisObjectId: 555,
     });
 
     const [description, geometry, firstAttemptAt, isRetry] = arcgis.addFeature
@@ -215,20 +218,11 @@ describe('ApplicationsService.approve', () => {
 });
 
 describe('ApplicationsService.returnToApplicant', () => {
-  it.each([undefined, {}, { sabab: '   ' }])(
-    'requires a reason (%j) -> 422',
-    async (body) => {
-      const error = await httpError(setup().service.returnToApplicant(1, body));
-      expect(error.status).toBe(422);
-      expect(error.body.maydonlar.sabab).toBeDefined();
-    },
-  );
-
   it('moves SUBMITTED to RETURNED', async () => {
     const { service, prisma } = setup();
     await expect(
-      service.returnToApplicant(1, { sabab: " Chegara noto'g'ri " }),
-    ).resolves.toEqual({ id: 1, holat: 'qaytarilgan' });
+      service.returnToApplicant(1, "Chegara noto'g'ri"),
+    ).resolves.toEqual({ id: 1, status: 'RETURNED' });
     expect(prisma.application.updateMany).toHaveBeenCalledWith({
       where: { id: 1, status: 'SUBMITTED' },
       data: { status: 'RETURNED', returnReason: "Chegara noto'g'ri" },
@@ -258,10 +252,10 @@ describe('ApplicationsService.create validation', () => {
     const error = await httpError(
       setup().service.create(
         JSON.stringify({ ...payload, soato_kodi: '9999999' }),
-        {
+        uploadsFromApi({
           ...files,
           tushuntirish_xati: pdf(25 * 1024 * 1024),
-        },
+        }),
       ),
     );
     expect(error.status).toBe(422);
@@ -290,7 +284,7 @@ describe('ApplicationsService.create validation', () => {
             ],
           },
         }),
-        files,
+        uploadsFromApi(files),
       ),
     );
     expect(Object.keys(error.body.maydonlar).sort()).toEqual([
@@ -301,7 +295,9 @@ describe('ApplicationsService.create validation', () => {
   });
 
   it('invalid JSON and no files -> 422', async () => {
-    const error = await httpError(setup().service.create('{bad', {}));
+    const error = await httpError(
+      setup().service.create('{bad', uploadsFromApi({})),
+    );
     expect(Object.keys(error.body.maydonlar).sort()).toEqual([
       'asosiy_chizma',
       'data',
@@ -311,7 +307,16 @@ describe('ApplicationsService.create validation', () => {
   });
 });
 
-describe('ApplicationsService.list validation', () => {
+/** The API path of GET /api/arizalar: wire query -> ListQuery -> service -> wire page. */
+const listViaApi = async (
+  service: ApplicationsService,
+  query: Record<string, string | undefined>,
+): Promise<ReturnType<typeof toPageDto>> =>
+  toPageDto(await service.list(parseListQuery(query)), (code) =>
+    new SoatoService().regionName(code),
+  );
+
+describe('GET /api/arizalar: query parsing, list and response mapping', () => {
   it('maps wire filters to the database query and the response back to wire names', async () => {
     const { service, prisma } = setup();
     prisma.application.findMany.mockResolvedValueOnce([
@@ -319,7 +324,7 @@ describe('ApplicationsService.list validation', () => {
     ] as never);
     prisma.application.count.mockResolvedValueOnce(41);
 
-    const result = await service.list({
+    const result = await listViaApi(service, {
       holat: 'yuborilgan',
       hujjat_turi: 'БР',
       soato_kodi: '1703401',
@@ -357,7 +362,7 @@ describe('ApplicationsService.list validation', () => {
 
   it('uses defaults and ignores empty filters', async () => {
     const { service, prisma } = setup();
-    await service.list({ holat: '', hujjat_turi: '' });
+    await listViaApi(service, { holat: '', hujjat_turi: '' });
     expect(
       (prisma.application.findMany.mock.calls[0] as unknown as [any])[0],
     ).toMatchObject({
@@ -372,14 +377,16 @@ describe('ApplicationsService.list validation', () => {
   });
 
   it('rejects an unknown document type with 422', async () => {
-    const error = await httpError(setup().service.list({ hujjat_turi: 'XX' }));
+    const error = await httpError(
+      listViaApi(setup().service, { hujjat_turi: 'XX' }),
+    );
     expect(error.status).toBe(422);
     expect(error.body.maydonlar.hujjat_turi).toBeDefined();
   });
 
   it('clamps a huge page number so skip stays a safe integer', async () => {
     const { service, prisma } = setup();
-    await service.list({ sahifa: '99999999999999999999', hajm: '20' });
+    await listViaApi(service, { sahifa: '99999999999999999999', hajm: '20' });
     const { skip } = (
       prisma.application.findMany.mock.calls[0] as unknown as [{ skip: number }]
     )[0];
@@ -390,24 +397,27 @@ describe('ApplicationsService.list validation', () => {
   it.each(['toString', 'constructor', 'SUBMITTED'])(
     'rejects status filter %s with 422',
     async (holat) => {
-      expect((await httpError(setup().service.list({ holat }))).status).toBe(
-        422,
-      );
+      expect(
+        (await httpError(listViaApi(setup().service, { holat }))).status,
+      ).toBe(422);
     },
   );
 });
 
 describe('ApplicationsService.getFile', () => {
   it('returns 404 when the stored file is missing on disk', async () => {
-    const error = await httpError(setup().service.getFile(1, 'asosiy_chizma'));
+    const error = await httpError(
+      setup().service.getFile(1, fileKindFromApi('asosiy_chizma')),
+    );
     expect(error.status).toBe(404);
     expect(error.body).toEqual({ xato: 'Fayl topilmadi' });
   });
 
   it('returns 404 for an unknown file field', async () => {
-    expect((await httpError(setup().service.getFile(1, 'boshqa'))).status).toBe(
-      404,
-    );
+    expect(
+      (await httpError(setup().service.getFile(1, fileKindFromApi('boshqa'))))
+        .status,
+    ).toBe(404);
   });
 });
 
@@ -438,9 +448,11 @@ describe('ApplicationsService file lifecycle', () => {
     }));
     prisma.applicationFile.findUnique.mockResolvedValue(null);
 
-    await expect(service.create(payload, allFiles())).resolves.toEqual({
+    await expect(
+      service.create(payload, uploadsFromApi(allFiles())),
+    ).resolves.toEqual({
       id: 9,
-      holat: 'yuborilgan',
+      status: 'SUBMITTED',
     });
     const paths = savedPaths(storage);
     expect(paths).toHaveLength(3);
@@ -456,9 +468,9 @@ describe('ApplicationsService file lifecycle', () => {
       throw new Error('db down');
     });
 
-    await expect(service.create(payload, allFiles())).rejects.toThrow(
-      'db down',
-    );
+    await expect(
+      service.create(payload, uploadsFromApi(allFiles())),
+    ).rejects.toThrow('db down');
     expect(
       storage.remove.mock.calls
         .map((c) => (c as unknown as [string])[0])
@@ -472,7 +484,9 @@ describe('ApplicationsService file lifecycle', () => {
       .mockResolvedValueOnce(undefined)
       .mockRejectedValueOnce(new Error('ENOSPC'));
 
-    await expect(service.create(payload, allFiles())).rejects.toThrow('ENOSPC');
+    await expect(
+      service.create(payload, uploadsFromApi(allFiles())),
+    ).rejects.toThrow('ENOSPC');
     expect(storage.remove).toHaveBeenCalledWith(savedPaths(storage)[0]);
     expect(prisma.$transaction).not.toHaveBeenCalled();
   });
@@ -481,8 +495,8 @@ describe('ApplicationsService file lifecycle', () => {
     const { service, storage, prisma } = setup({ status: 'RETURNED' });
 
     await expect(
-      service.resubmit(1, payload, { asosiy_chizma: pdf() }),
-    ).resolves.toEqual({ id: 1, holat: 'yuborilgan' });
+      service.resubmit(1, payload, uploadsFromApi({ asosiy_chizma: pdf() })),
+    ).resolves.toEqual({ id: 1, status: 'SUBMITTED' });
     expect(prisma.applicationFile.upsert).toHaveBeenCalledTimes(1);
     expect(storage.remove).toHaveBeenCalledWith('main_drawing-old.pdf');
     expect(storage.remove).not.toHaveBeenCalledWith(savedPaths(storage)[0]);
@@ -493,8 +507,15 @@ describe('ApplicationsService file lifecycle', () => {
     prisma.application.updateMany.mockResolvedValueOnce({ count: 0 });
 
     expect(
-      (await httpError(service.resubmit(1, payload, { asosiy_chizma: pdf() })))
-        .status,
+      (
+        await httpError(
+          service.resubmit(
+            1,
+            payload,
+            uploadsFromApi({ asosiy_chizma: pdf() }),
+          ),
+        )
+      ).status,
     ).toBe(409);
     expect(storage.remove).toHaveBeenCalledWith(savedPaths(storage)[0]);
     expect(storage.remove).not.toHaveBeenCalledWith('main_drawing-old.pdf');
@@ -512,7 +533,7 @@ describe('ApplicationsService temporary uploads', () => {
       tushuntirish_xati: upload('tmp/2', 25 * 1024 * 1024),
       tasdiqlovchi_hujjat: upload('html-3'),
     };
-    const error = await httpError(service.create('{}', files));
+    const error = await httpError(service.create('{}', uploadsFromApi(files)));
     expect(error.status).toBe(422);
     expect(error.body.maydonlar).toMatchObject({
       tushuntirish_xati: 'Fayl hajmi 20 MB dan oshmasin',
@@ -531,7 +552,11 @@ describe('ApplicationsService temporary uploads', () => {
     expect(
       (
         await httpError(
-          service.resubmit(1, '{}', { asosiy_chizma: upload('tmp/9') }),
+          service.resubmit(
+            1,
+            '{}',
+            uploadsFromApi({ asosiy_chizma: upload('tmp/9') }),
+          ),
         )
       ).status,
     ).toBe(409);
@@ -574,7 +599,9 @@ describe('ApplicationsService PostGIS geometry check', () => {
       tasdiqlovchi_hujjat: pdf(),
     };
 
-    const error = await httpError(service.create(payload, files));
+    const error = await httpError(
+      service.create(payload, uploadsFromApi(files)),
+    );
     expect(error.status).toBe(422);
     expect(error.body.maydonlar).toEqual({
       chegara: "Chegara o'zini kesib o'tadi (nuqta: 72.35 40.78)",
@@ -587,9 +614,10 @@ describe('ApplicationsService PostGIS geometry check', () => {
   it('resubmit: the corrected boundary is checked as well', async () => {
     const { service, geometry } = setup({ status: 'RETURNED' });
     geometry.invalidReason.mockResolvedValueOnce('x');
-    expect((await httpError(service.resubmit(1, payload, {}))).status).toBe(
-      422,
-    );
+    expect(
+      (await httpError(service.resubmit(1, payload, uploadsFromApi({}))))
+        .status,
+    ).toBe(422);
     expect(geometry.invalidReason).toHaveBeenCalledWith(
       JSON.parse(payload).chegara,
     );
@@ -597,7 +625,7 @@ describe('ApplicationsService PostGIS geometry check', () => {
 
   it('the database is not asked when the JS rules already fail', async () => {
     const { service, geometry } = setup();
-    await httpError(service.create('{bad', {}));
+    await httpError(service.create('{bad', uploadsFromApi({})));
     expect(geometry.invalidReason).not.toHaveBeenCalled();
   });
 });

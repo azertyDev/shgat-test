@@ -3,32 +3,24 @@ import { randomUUID } from 'node:crypto';
 import {
   Prisma,
   type Application,
+  type ApplicationFile,
   type ApplicationStatus,
-  type FileKind,
 } from '../generated/prisma/client.js';
+import { FileKind } from '../generated/prisma/enums.js';
 import { apiError, FieldValidationError } from '../common/errors/api-error.js';
 import { PrismaService } from '../prisma/prisma.service.js';
 import {
-  API_STATUSES,
   ERROR_CODES,
-  FIELD_TO_FILE_KIND,
-  isUploadField,
+  fieldsToApi,
   STATUS_TO_API,
-  statusFromApi,
-  UPLOAD_FIELDS,
-  type UploadField,
+  type Uploads,
 } from './api-contract.js';
-import type { ApprovalDto } from './dto/application-response.dto.js';
-import {
-  toDetailsDto,
-  toStatusDto,
-  toSummaryDto,
-} from './mappers/application.mapper.js';
 import {
   createApplicationPayloadSchema,
+  parseApplicationPayload,
   type ApplicationInput,
 } from './dto/application-payload.dto.js';
-import { DOCUMENT_TYPES } from './domain/document-types.js';
+import type { ListQuery } from './dto/list-query.dto.js';
 import { SoatoService } from '../soato/soato.service.js';
 import { ArcgisError, ArcgisService } from '../arcgis/arcgis.service.js';
 import { toEsriPolygon } from '../geo/esri-geometry.js';
@@ -38,12 +30,27 @@ import { GeometryValidator } from '../geo/geometry-validator.service.js';
 import { FileStorageService } from '../storage/file-storage.service.js';
 import { checkUploadedFile, detectFileType } from '../storage/file-type.js';
 
-export type UploadedFileMap = Partial<
-  Record<UploadField, Express.Multer.File[]>
->;
 type Tx = Prisma.TransactionClient;
 
-type FileHeads = Partial<Record<UploadField, Buffer>>;
+type FileHeads = Partial<Record<FileKind, Buffer>>;
+
+const FILE_KINDS = Object.values(FileKind);
+
+/** Result of create, resubmit and return. */
+export interface StatusChange {
+  id: number;
+  status: ApplicationStatus;
+}
+
+export interface Approval {
+  registrationNumber: string;
+  arcgisObjectId: number;
+}
+
+export interface ApplicationPage {
+  items: Application[];
+  total: number;
+}
 
 interface StoredUpload {
   kind: FileKind;
@@ -53,7 +60,6 @@ interface StoredUpload {
   size: number;
 }
 
-const MAX_PAGE = 1_000_000;
 const STATE_CHANGED = "Ariza holati o'zgargan, sahifani yangilang";
 
 @Injectable()
@@ -62,8 +68,6 @@ export class ApplicationsService {
   private readonly payloadSchema: ReturnType<
     typeof createApplicationPayloadSchema
   >;
-  private readonly regionName = (code: string) => this.soato.regionName(code);
-
   constructor(
     private readonly prisma: PrismaService,
     private readonly arcgis: ArcgisService,
@@ -76,7 +80,8 @@ export class ApplicationsService {
     );
   }
 
-  async create(rawData: unknown, files: UploadedFileMap) {
+  /** `rawData` is the JSON of the multipart `data` field; it is parsed by the DTO layer. */
+  async create(rawData: unknown, files: Uploads): Promise<StatusChange> {
     try {
       const heads = await this.readHeads(files);
       const input = this.validate(rawData, files, heads, true);
@@ -91,7 +96,7 @@ export class ApplicationsService {
           await this.saveFileRows(tx, created.id, uploads);
           return created;
         });
-        return toStatusDto(application.id, application.status);
+        return { id: application.id, status: application.status };
       } catch (e) {
         await this.discardFiles(uploads.map((u) => u.storagePath));
         throw e;
@@ -101,58 +106,41 @@ export class ApplicationsService {
     }
   }
 
-  async list(query: Record<string, string | undefined>) {
-    const errors: Record<string, string> = {};
-    const status = query.holat ? statusFromApi(query.holat) : undefined;
-    if (query.holat && !status)
-      errors.holat = `Holatlardan biri: ${API_STATUSES.join(', ')}`;
-    if (
-      query.hujjat_turi &&
-      !(DOCUMENT_TYPES as readonly string[]).includes(query.hujjat_turi)
-    )
-      errors.hujjat_turi = `Turlardan biri: ${DOCUMENT_TYPES.join(', ')}`;
-    if (Object.keys(errors).length) throw new FieldValidationError(errors);
-
-    // clamped so that skip stays a safe integer for Prisma (huge values returned 500)
-    const page = Math.min(
-      MAX_PAGE,
-      Math.max(1, Number.parseInt(query.sahifa ?? '', 10) || 1),
-    );
-    const pageSize = Math.min(
-      100,
-      Math.max(1, Number.parseInt(query.hajm ?? '', 10) || 20),
-    );
+  async list(query: ListQuery): Promise<ApplicationPage> {
     const where: Prisma.ApplicationWhereInput = {
-      status,
-      documentType: query.hujjat_turi || undefined,
-      soatoCode: query.soato_kodi || undefined,
+      status: query.status,
+      documentType: query.documentType,
+      soatoCode: query.soatoCode,
     };
     const [items, total] = await this.prisma.$transaction([
       this.prisma.application.findMany({
         where,
         orderBy: { id: 'desc' },
-        skip: (page - 1) * pageSize,
-        take: pageSize,
+        skip: (query.page - 1) * query.pageSize,
+        take: query.pageSize,
       }),
       this.prisma.application.count({ where }),
     ]);
-    return {
-      items: items.map((a) => toSummaryDto(a, this.regionName)),
-      jami: total,
-    };
+    return { items, total };
   }
 
-  async findOne(id: number) {
+  async findOne(
+    id: number,
+  ): Promise<Application & { files: ApplicationFile[] }> {
     const application = await this.prisma.application.findUnique({
       where: { id },
       include: { files: true },
     });
     if (!application) throw apiError(HttpStatus.NOT_FOUND, 'Ariza topilmadi');
-    return toDetailsDto(application, this.regionName);
+    return application;
   }
 
   /** Resubmits a returned application. Files that are not sent again are kept. */
-  async resubmit(id: number, rawData: unknown, files: UploadedFileMap) {
+  async resubmit(
+    id: number,
+    rawData: unknown,
+    files: Uploads,
+  ): Promise<StatusChange> {
     try {
       return await this.resubmitWithUploads(id, rawData, files);
     } finally {
@@ -163,8 +151,8 @@ export class ApplicationsService {
   private async resubmitWithUploads(
     id: number,
     rawData: unknown,
-    files: UploadedFileMap,
-  ) {
+    files: Uploads,
+  ): Promise<StatusChange> {
     await this.requireStatus(
       id,
       'RETURNED',
@@ -196,14 +184,14 @@ export class ApplicationsService {
     }
     // old files are removed only after the new rows are committed
     await this.discardFiles(replaced);
-    return toStatusDto(id, 'SUBMITTED');
+    return { id, status: 'SUBMITTED' };
   }
 
   /**
    * Builds the registration number, writes the boundary to ArcGIS and only then changes the status.
    * If ArcGIS fails, the status and the number stay unchanged (502) and the reviewer can retry.
    */
-  async approve(id: number): Promise<ApprovalDto> {
+  async approve(id: number): Promise<Approval> {
     const application = await this.requireStatus(
       id,
       'SUBMITTED',
@@ -270,7 +258,7 @@ export class ApplicationsService {
         throw duplicateNumber(registrationNumber);
       throw e;
     }
-    return { id_raqam: registrationNumber, arcgis_object_id: objectId };
+    return { registrationNumber, arcgisObjectId: objectId };
   }
 
   /** Best effort: a failed cleanup is logged and must not hide the original error. */
@@ -284,10 +272,8 @@ export class ApplicationsService {
     }
   }
 
-  async returnToApplicant(id: number, body: unknown) {
-    const reason = (body as { sabab?: unknown } | undefined)?.sabab;
-    if (typeof reason !== 'string' || !reason.trim())
-      throw new FieldValidationError({ sabab: 'Qaytarish sababi majburiy' });
+  /** `reason` is already validated and trimmed by the DTO layer. */
+  async returnToApplicant(id: number, reason: string): Promise<StatusChange> {
     await this.requireStatus(
       id,
       'SUBMITTED',
@@ -295,21 +281,17 @@ export class ApplicationsService {
     );
     const { count } = await this.prisma.application.updateMany({
       where: { id, status: 'SUBMITTED' },
-      data: { status: 'RETURNED', returnReason: reason.trim() },
+      data: { status: 'RETURNED', returnReason: reason },
     });
     if (count === 0) throw apiError(HttpStatus.CONFLICT, STATE_CHANGED);
-    return toStatusDto(id, 'RETURNED');
+    return { id, status: 'RETURNED' };
   }
 
-  async getFile(id: number, field: string) {
-    const file = isUploadField(field)
+  /** `kind` is undefined for a file name the API does not know. */
+  async getFile(id: number, kind: FileKind | undefined) {
+    const file = kind
       ? await this.prisma.applicationFile.findUnique({
-          where: {
-            applicationId_kind: {
-              applicationId: id,
-              kind: FIELD_TO_FILE_KIND[field],
-            },
-          },
+          where: { applicationId_kind: { applicationId: id, kind } },
         })
       : null;
     // the row may outlive the file (lost volume, manual cleanup): answer 404, not a raw ENOENT
@@ -341,24 +323,22 @@ export class ApplicationsService {
   /** PostGIS topology check; runs only after the cheap JS rules have passed. */
   private async assertValidGeometry(input: ApplicationInput) {
     const error = await this.geometry.invalidReason(input.boundary);
-    if (error) throw new FieldValidationError({ chegara: error });
+    if (error) throw new FieldValidationError(fieldsToApi({ boundary: error }));
   }
 
   /** Multer writes uploads to disk; the signature check needs their first bytes. */
-  private async readHeads(files: UploadedFileMap): Promise<FileHeads> {
+  private async readHeads(files: Uploads): Promise<FileHeads> {
     const heads: FileHeads = {};
-    for (const field of UPLOAD_FIELDS) {
-      const upload = files[field]?.[0];
-      if (upload) heads[field] = await this.storage.readHead(upload.path);
+    for (const kind of FILE_KINDS) {
+      const upload = files[kind];
+      if (upload) heads[kind] = await this.storage.readHead(upload.path);
     }
     return heads;
   }
 
   /** Temporary uploads that were not moved into storage (validation errors, conflicts, failures). */
-  private async removeTempFiles(files: UploadedFileMap) {
-    const temp = UPLOAD_FIELDS.flatMap(
-      (f) => files[f]?.map((u) => u.path) ?? [],
-    );
+  private async removeTempFiles(files: Uploads) {
+    const temp = FILE_KINDS.flatMap((kind) => files[kind]?.path ?? []);
     await Promise.all(
       temp.map((p) => this.storage.removeTemp(p).catch(() => undefined)),
     );
@@ -366,33 +346,25 @@ export class ApplicationsService {
 
   private validate(
     rawData: unknown,
-    files: UploadedFileMap,
+    files: Uploads,
     heads: FileHeads,
     filesRequired: boolean,
   ): ApplicationInput {
-    const errors: Record<string, string> = {};
-    let input: ApplicationInput | undefined;
-    try {
-      const result = this.payloadSchema.safeParse(
-        JSON.parse(String(rawData ?? '')),
-      );
-      if (result.success) input = result.data;
-      else
-        for (const issue of result.error.issues)
-          errors[String(issue.path[0] ?? 'data')] ??= issue.message;
-    } catch {
-      errors.data = "data maydoni to'g'ri JSON bo'lishi kerak";
-    }
-    for (const field of UPLOAD_FIELDS) {
-      const upload = files[field]?.[0];
+    const { input, errors } = parseApplicationPayload(
+      this.payloadSchema,
+      rawData,
+    );
+    const fileErrors: Record<string, string> = {};
+    for (const kind of FILE_KINDS) {
+      const upload = files[kind];
       const error = checkUploadedFile(
-        upload && { size: upload.size, head: heads[field] ?? Buffer.alloc(0) },
+        upload && { size: upload.size, head: heads[kind] ?? Buffer.alloc(0) },
         filesRequired,
       );
-      if (error) errors[field] = error;
+      if (error) fileErrors[kind] = error;
     }
-    if (!input || Object.keys(errors).length)
-      throw new FieldValidationError(errors);
+    const all = { ...errors, ...fieldsToApi(fileErrors) };
+    if (!input || Object.keys(all).length) throw new FieldValidationError(all);
     return input;
   }
 
@@ -401,16 +373,15 @@ export class ApplicationsService {
    * file is never overwritten. If one move fails, the files stored so far are removed.
    */
   private async storeUploads(
-    files: UploadedFileMap,
+    files: Uploads,
     heads: FileHeads,
   ): Promise<StoredUpload[]> {
     const written: StoredUpload[] = [];
     try {
-      for (const field of UPLOAD_FIELDS) {
-        const upload = files[field]?.[0];
+      for (const kind of FILE_KINDS) {
+        const upload = files[kind];
         if (!upload) continue;
-        const kind = FIELD_TO_FILE_KIND[field];
-        const { ext, mime } = detectFileType(heads[field]!)!;
+        const { ext, mime } = detectFileType(heads[kind]!)!;
         // the stored name never comes from the user
         const storagePath = `${kind.toLowerCase()}-${randomUUID()}.${ext}`;
         await this.storage.moveIn(upload.path, storagePath);

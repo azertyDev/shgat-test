@@ -27,12 +27,26 @@ import { uploadOptions } from '../storage/upload-options.js';
 import { ALL_ROLES, Role } from '../auth/role.enum.js';
 import { Roles } from '../auth/roles.decorator.js';
 import { ParseIdPipe } from '../common/pipes/parse-id.pipe.js';
-import { API_STATUSES } from './api-contract.js';
+import { SoatoService } from '../soato/soato.service.js';
 import {
-  ApplicationsService,
-  type UploadedFileMap,
-} from './applications.service.js';
-import { UPLOAD_FIELDS } from './api-contract.js';
+  API_STATUSES,
+  fileKindFromApi,
+  UPLOAD_FIELDS,
+  uploadsFromApi,
+  type UploadField,
+} from './api-contract.js';
+import { ApplicationsService } from './applications.service.js';
+import { parseListQuery } from './dto/list-query.dto.js';
+import { parseReturnReason } from './dto/return-request.dto.js';
+import {
+  toApprovalDto,
+  toDetailsDto,
+  toPageDto,
+  toStatusDto,
+} from './mappers/application.mapper.js';
+
+/** Multer's view of the multipart files: wire field names, one file each. */
+type MultipartFiles = Partial<Record<UploadField, Express.Multer.File[]>>;
 
 const uploadInterceptor = FileFieldsInterceptor(
   UPLOAD_FIELDS.map((name) => ({ name, maxCount: 1 })),
@@ -81,20 +95,33 @@ const multipartBody = (filesRequired: boolean) => ({
   required: false,
   description: "Bearer token bo'lmasa",
 })
+/**
+ * The API boundary: wire names of the task spec come in and go out here (via the DTO parsers and
+ * the mapper); ApplicationsService only sees and returns the English domain shapes.
+ */
 @Controller('arizalar')
 export class ApplicationsController {
-  constructor(private readonly applications: ApplicationsService) {}
+  private readonly regionName = (code: string) => this.soato.regionName(code);
+
+  constructor(
+    private readonly applications: ApplicationsService,
+    private readonly soato: SoatoService,
+  ) {}
 
   @Post()
   @Roles([Role.APPLICANT])
   @UseInterceptors(uploadInterceptor)
   @ApiConsumes('multipart/form-data')
   @ApiBody(multipartBody(true))
-  create(
+  async create(
     @Body('data') data: string,
-    @UploadedFiles() files: UploadedFileMap = {},
+    @UploadedFiles() files: MultipartFiles = {},
   ) {
-    return this.applications.create(data, files);
+    const { id, status } = await this.applications.create(
+      data,
+      uploadsFromApi(files),
+    );
+    return toStatusDto(id, status);
   }
 
   @Get()
@@ -104,14 +131,15 @@ export class ApplicationsController {
   @ApiQuery({ name: 'soato_kodi', required: false })
   @ApiQuery({ name: 'sahifa', required: false, type: Number })
   @ApiQuery({ name: 'hajm', required: false, type: Number })
-  list(@Query() query: Record<string, string | undefined>) {
-    return this.applications.list(query);
+  async list(@Query() query: Record<string, string | undefined>) {
+    const page = await this.applications.list(parseListQuery(query));
+    return toPageDto(page, this.regionName);
   }
 
   @Get(':id')
   @Roles(ALL_ROLES)
-  findOne(@Param('id', ParseIdPipe) id: number) {
-    return this.applications.findOne(id);
+  async findOne(@Param('id', ParseIdPipe) id: number) {
+    return toDetailsDto(await this.applications.findOne(id), this.regionName);
   }
 
   @Put(':id')
@@ -119,19 +147,24 @@ export class ApplicationsController {
   @UseInterceptors(uploadInterceptor)
   @ApiConsumes('multipart/form-data')
   @ApiBody(multipartBody(false))
-  resubmit(
+  async resubmit(
     @Param('id', ParseIdPipe) id: number,
     @Body('data') data: string,
-    @UploadedFiles() files: UploadedFileMap = {},
+    @UploadedFiles() files: MultipartFiles = {},
   ) {
-    return this.applications.resubmit(id, data, files);
+    const result = await this.applications.resubmit(
+      id,
+      data,
+      uploadsFromApi(files),
+    );
+    return toStatusDto(result.id, result.status);
   }
 
   @Post(':id/tasdiqlash')
   @HttpCode(200)
   @Roles([Role.REVIEWER])
-  approve(@Param('id', ParseIdPipe) id: number) {
-    return this.applications.approve(id);
+  async approve(@Param('id', ParseIdPipe) id: number) {
+    return toApprovalDto(await this.applications.approve(id));
   }
 
   @Post(':id/qaytarish')
@@ -144,11 +177,15 @@ export class ApplicationsController {
       properties: { sabab: { type: 'string' } },
     },
   })
-  returnToApplicant(
+  async returnToApplicant(
     @Param('id', ParseIdPipe) id: number,
     @Body() body: unknown,
   ) {
-    return this.applications.returnToApplicant(id, body);
+    const result = await this.applications.returnToApplicant(
+      id,
+      parseReturnReason(body),
+    );
+    return toStatusDto(result.id, result.status);
   }
 
   /** Opened as a plain browser link, so no X-Rol header is required. */
@@ -158,7 +195,7 @@ export class ApplicationsController {
     @Param('tur') field: string,
     @Res({ passthrough: true }) res: Response,
   ) {
-    const file = await this.applications.getFile(id, field);
+    const file = await this.applications.getFile(id, fileKindFromApi(field));
     res.set({
       'Content-Type': file.mimeType,
       'Content-Disposition': `inline; filename*=UTF-8''${encodeURIComponent(file.originalName)}`,

@@ -52,3 +52,20 @@ export const createApplicationPayloadSchema = (
 export type ApplicationInput = z.output<
   ReturnType<typeof createApplicationPayloadSchema>
 >;
+
+/** Parses the multipart `data` field; errors are keyed by wire name ("data" for broken JSON). */
+export function parseApplicationPayload(
+  schema: ReturnType<typeof createApplicationPayloadSchema>,
+  rawData: unknown,
+): { input?: ApplicationInput; errors: Record<string, string> } {
+  const errors: Record<string, string> = {};
+  try {
+    const result = schema.safeParse(JSON.parse(String(rawData ?? '')));
+    if (result.success) return { input: result.data, errors };
+    for (const issue of result.error.issues)
+      errors[String(issue.path[0] ?? 'data')] ??= issue.message;
+  } catch {
+    errors.data = "data maydoni to'g'ri JSON bo'lishi kerak";
+  }
+  return { errors };
+}

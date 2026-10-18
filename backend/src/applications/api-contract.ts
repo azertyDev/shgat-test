@@ -50,3 +50,35 @@ export function statusFromApi(value: string): ApplicationStatus | undefined {
 
 export const isUploadField = (value: string): value is UploadField =>
   (UPLOAD_FIELDS as readonly string[]).includes(value);
+
+/** Uploaded documents by kind; the service never sees the multipart field names. */
+export type Uploads = Partial<Record<FileKind, Express.Multer.File>>;
+
+/** Multer's field map (wire names, maxCount 1) -> uploads by kind. */
+export const uploadsFromApi = (
+  files: Partial<Record<UploadField, Express.Multer.File[]>> = {},
+): Uploads =>
+  Object.fromEntries(
+    UPLOAD_FIELDS.flatMap((field) => {
+      const file = files[field]?.[0];
+      return file ? [[FIELD_TO_FILE_KIND[field], file]] : [];
+    }),
+  );
+
+/** `tur` of the file download route -> kind; undefined for an unknown name. */
+export const fileKindFromApi = (field: string): FileKind | undefined =>
+  isUploadField(field) ? FIELD_TO_FILE_KIND[field] : undefined;
+
+/** Field errors raised with code names (boundary, file kinds) get the wire names of `maydonlar`. */
+const FIELD_TO_API: Record<string, string> = {
+  boundary: 'chegara',
+  ...FILE_KIND_TO_FIELD,
+};
+
+export const fieldsToApi = (fields: Record<string, string>) =>
+  Object.fromEntries(
+    Object.entries(fields).map(([field, message]) => [
+      FIELD_TO_API[field] ?? field,
+      message,
+    ]),
+  );

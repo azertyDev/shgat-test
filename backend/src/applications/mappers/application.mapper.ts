@@ -8,6 +8,7 @@ import { addBusinessDays, tashkentDate } from '../domain/business-days.js';
 import type {
   ApplicationDetailsDto,
   ApplicationSummaryDto,
+  ApprovalDto,
   StatusDto,
 } from '../dto/application-response.dto.js';
 
@@ -59,4 +60,20 @@ export const toDetailsDto = (
       url: `/api/arizalar/${a.id}/fayllar/${field}`,
     };
   }),
+});
+
+export const toPageDto = (
+  page: { items: Application[]; total: number },
+  regionName: RegionNameResolver,
+) => ({
+  items: page.items.map((a) => toSummaryDto(a, regionName)),
+  jami: page.total,
+});
+
+export const toApprovalDto = (a: {
+  registrationNumber: string;
+  arcgisObjectId: number;
+}): ApprovalDto => ({
+  id_raqam: a.registrationNumber,
+  arcgis_object_id: a.arcgisObjectId,
 });

@@ -23,10 +23,10 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
     </App>
   ),
   errorComponent: ErrorBoundary,
-  notFoundComponent: SahifaYoq,
+  notFoundComponent: PageNotFound,
 });
 
-function SahifaYoq() {
+function PageNotFound() {
   const { t } = useTranslate();
   return (
     <Container>

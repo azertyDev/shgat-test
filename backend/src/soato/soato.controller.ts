@@ -18,7 +18,8 @@ export class SoatoController {
 
   @Get()
   @Roles(ALL_ROLES)
+  /** Wire shape of the task spec: [{kod, nomi}]. */
   list() {
-    return this.soato.list();
+    return this.soato.list().map((r) => ({ kod: r.code, nomi: r.name }));
   }
 }
