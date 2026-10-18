@@ -1,10 +1,11 @@
-import { ArcgisService, ArcgisXatosi } from './arcgis.service.js';
+import { ArcgisService, ArcgisXatosi, sqlVaqt } from './arcgis.service.js';
 import { toEsriPolygon } from './chegara.js';
 
 const geom = toEsriPolygon({
   type: 'Polygon',
   coordinates: [[[72.3, 40.75], [72.4, 40.75], [72.4, 40.81], [72.3, 40.81], [72.3, 40.75]]],
 });
+const boshlandi = new Date('2026-10-18T08:00:00Z');
 const javob = (body: unknown) => new Response(JSON.stringify(body), { status: 200 });
 
 describe('ArcgisService.yoz', () => {
@@ -22,8 +23,12 @@ describe('ArcgisService.yoz', () => {
       .mockResolvedValueOnce(javob({ objectIds: null }))
       .mockResolvedValueOnce(javob({ addResults: [{ success: true, objectId: 42 }] }));
 
-    await expect(new ArcgisService().yoz('БР-1703401-2026', 'БР-1703401-2026 | test', geom)).resolves.toBe(42);
+    await expect(new ArcgisService().yoz('БР-1703401-2026 | test', geom, boshlandi)).resolves.toBe(42);
     expect([amal(0), amal(1)]).toEqual(['query', 'applyEdits']);
+    // umumiy serverda boshqalarning xuddi shu ID'li obyektini topib olmaslik uchun: aniq matn + vaqt
+    expect((fetchMock.mock.calls[0][1]!.body as URLSearchParams).get('where')).toBe(
+      "description = 'БР-1703401-2026 | test' AND created_date >= timestamp '2026-10-18 07:55:00'",
+    );
     const body = fetchMock.mock.calls[1][1]!.body as URLSearchParams;
     expect(body.get('f')).toBe('json');
     const [add] = JSON.parse(body.get('adds')!);
@@ -37,13 +42,13 @@ describe('ArcgisService.yoz', () => {
       .mockRejectedValueOnce(new DOMException('timeout', 'TimeoutError')) // obyekt yaratildi, javob kelmadi
       .mockResolvedValueOnce(javob({ objectIds: [77] }));
 
-    await expect(new ArcgisService().yoz('БР-1703401-2026', 'x', geom)).resolves.toBe(77);
+    await expect(new ArcgisService().yoz('x', geom, boshlandi)).resolves.toBe(77);
     expect(fetchMock.mock.calls.map((_, i) => amal(i))).toEqual(['query', 'applyEdits', 'query']);
   });
 
   it('har urinish xato bersa ArcgisXatosi', async () => {
     fetchMock.mockImplementation(async () => javob({ error: { code: 500, message: 'Unable to complete operation.' } }));
-    await expect(new ArcgisService().yoz('БР-1703401-2026', 'x', geom)).rejects.toBeInstanceOf(ArcgisXatosi);
+    await expect(new ArcgisService().yoz('x', geom, boshlandi)).rejects.toBeInstanceOf(ArcgisXatosi);
     expect(fetchMock).toHaveBeenCalledTimes(3); // 1 + ARCGIS_RETRIES (2)
   });
 
@@ -53,6 +58,12 @@ describe('ArcgisService.yoz', () => {
         ? javob({ objectIds: null })
         : javob({ addResults: [{ success: false, error: { description: 'Geometry is invalid' } }] }),
     );
-    await expect(new ArcgisService().yoz('БР-1703401-2026', 'x', geom)).rejects.toThrow('Geometry is invalid');
+    await expect(new ArcgisService().yoz('x', geom, boshlandi)).rejects.toThrow('Geometry is invalid');
+  });
+});
+
+describe('sqlVaqt', () => {
+  it('5 daqiqa zaxira bilan UTC', () => {
+    expect(sqlVaqt(new Date('2026-01-01T00:02:03.456Z'))).toBe('2025-12-31 23:57:03');
   });
 });

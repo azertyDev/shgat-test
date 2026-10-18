@@ -85,7 +85,7 @@ export class ArizalarService {
     await this.prisma.$transaction(async (tx) => {
       const r = await tx.ariza.updateMany({
         where: { id, holat: 'qaytarilgan' },
-        data: { ...ustunlar(d), holat: 'yuborilgan', yuborilgan_vaqt: new Date(), qaytarish_sababi: null },
+        data: { ...ustunlar(d), holat: 'yuborilgan', yuborilgan_vaqt: new Date(), qaytarish_sababi: null, arcgis_urinish_vaqti: null },
       });
       if (r.count === 0) throw xato(HttpStatus.CONFLICT, "Ariza holati o'zgargan, sahifani yangilang");
       await this.saqlaFayllar(tx, id, fayllar);
@@ -104,9 +104,14 @@ export class ArizalarService {
     const band = await this.prisma.ariza.findUnique({ where: { id_raqam: idRaqam } });
     if (band) throw idTakrori(idRaqam, band.id);
 
+    // ID va holat emas — faqat urinish vaqti saqlanadi (ArcgisService.yoz izohiga qarang)
+    const boshlandi = a.arcgis_urinish_vaqti ?? new Date();
+    if (!a.arcgis_urinish_vaqti) await this.prisma.ariza.update({ where: { id }, data: { arcgis_urinish_vaqti: boshlandi } });
+
     let objectId: number;
     try {
-      objectId = await this.arcgis.yoz(idRaqam, `${idRaqam} | ${a.hujjat_nomi}`.slice(0, DESCRIPTION_MAX), toEsriPolygon(a.chegara as never));
+      const description = `${idRaqam} | ${a.hujjat_nomi}`.slice(0, DESCRIPTION_MAX);
+      objectId = await this.arcgis.yoz(description, toEsriPolygon(a.chegara as never), boshlandi);
     } catch (e) {
       if (e instanceof ArcgisXatosi) throw xato(HttpStatus.BAD_GATEWAY, `ArcGIS qatlamiga yozib bo'lmadi (${e.message.replace(/\.+$/, '')}). Keyinroq qayta urinib ko'ring.`);
       throw e;

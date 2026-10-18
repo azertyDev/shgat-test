@@ -15,6 +15,7 @@ const ariza = {
   holat: 'yuborilgan',
   id_raqam: null,
   arcgis_object_id: null,
+  arcgis_urinish_vaqti: null as Date | null,
 };
 
 const status = async (p: Promise<unknown>) => {
@@ -30,6 +31,7 @@ function yarat(ustidan: Partial<typeof ariza> = {}) {
   const prisma = {
     ariza: {
       findUnique: vi.fn(async ({ where }: any) => (where.id === 1 ? { ...ariza, ...ustidan } : null)),
+      update: vi.fn(async () => ({})),
       updateMany: vi.fn(async () => ({ count: 1 })),
     },
   };
@@ -43,10 +45,10 @@ describe('ArizalarService.tasdiqla', () => {
     const { service, prisma, arcgis } = yarat();
     await expect(service.tasdiqla(1)).resolves.toEqual({ id_raqam: 'БР-1703401-2026', arcgis_object_id: 555 });
 
-    const [idRaqam, description, geometry] = arcgis.yoz.mock.calls[0] as unknown as [string, string, any];
-    expect(idRaqam).toBe('БР-1703401-2026');
+    const [description, geometry, boshlandi] = arcgis.yoz.mock.calls[0] as unknown as [string, any, Date];
     expect(description).toBe('БР-1703401-2026 | Andijon shahri bosh rejasi');
     expect(geometry.spatialReference.wkid).toBe(102100);
+    expect(prisma.ariza.update).toHaveBeenCalledWith({ where: { id: 1 }, data: { arcgis_urinish_vaqti: boshlandi } });
     expect(prisma.ariza.updateMany).toHaveBeenCalledWith({
       where: { id: 1, holat: 'yuborilgan' },
       data: { holat: 'hisobga_olingan', id_raqam: 'БР-1703401-2026', arcgis_object_id: 555 },
@@ -56,7 +58,7 @@ describe('ArizalarService.tasdiqla', () => {
   it('description 75 belgiga qisqartiriladi', async () => {
     const { service, arcgis } = yarat({ hujjat_nomi: 'А'.repeat(200) });
     await service.tasdiqla(1);
-    expect((arcgis.yoz.mock.calls[0] as unknown as string[])[1]).toHaveLength(75);
+    expect((arcgis.yoz.mock.calls[0] as unknown as string[])[0]).toHaveLength(75);
   });
 
   it('ID band bo\'lsa — 409, ArcGISga yozilmaydi', async () => {
@@ -75,6 +77,14 @@ describe('ArizalarService.tasdiqla', () => {
     arcgis.yoz.mockRejectedValueOnce(new ArcgisXatosi('HTTP 503'));
     expect((await status(service.tasdiqla(1))).status).toBe(502);
     expect(prisma.ariza.updateMany).not.toHaveBeenCalled();
+  });
+
+  it('qayta urinishda birinchi urinish vaqti ishlatiladi', async () => {
+    const birinchi = new Date('2026-10-18T08:00:00Z');
+    const { service, prisma, arcgis } = yarat({ arcgis_urinish_vaqti: birinchi });
+    await service.tasdiqla(1);
+    expect((arcgis.yoz.mock.calls[0] as unknown as [string, any, Date])[2]).toBe(birinchi);
+    expect(prisma.ariza.update).not.toHaveBeenCalled();
   });
 
   it('parallel tasdiqlashda unique cheklov — 409', async () => {

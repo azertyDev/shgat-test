@@ -32,6 +32,8 @@ model Ariza {
   holat            Holat    @default(yuborilgan)
   id_raqam         String?  @unique @db.VarChar(32)
   arcgis_object_id Int?
+  /// birinchi ArcGIS yozish urinishi vaqti — qayta urinishda dublikat yaratmaslik uchun
+  arcgis_urinish_vaqti DateTime?
   qaytarish_sababi String?
   yuborilgan_vaqt  DateTime @default(now())
   created_at       DateTime @default(now())

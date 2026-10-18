@@ -3,6 +3,11 @@ import type { EsriPolygon } from './chegara.js';
 
 export class ArcgisXatosi extends Error {}
 
+const SOAT_FARQI_MS = 5 * 60_000; // bizning va ArcGIS server soatlari orasidagi farq uchun zaxira
+
+/** ArcGIS standart SQL: timestamp 'YYYY-MM-DD HH:MI:SS' (qatlam sanalari UTC'da). */
+export const sqlVaqt = (d: Date) => new Date(d.getTime() - SOAT_FARQI_MS).toISOString().slice(0, 19).replace('T', ' ');
+
 const DEFAULT_URL = 'https://sampleserver6.arcgisonline.com/arcgis/rest/services/Wildfire/FeatureServer/2';
 
 /** Ochiq Feature Service qatlamiga yozish (token kerak emas). */
@@ -14,11 +19,13 @@ export class ArcgisService {
   private readonly retries = Number(process.env.ARCGIS_RETRIES ?? 2);
 
   /**
-   * Obyekt qo'shadi va objectId qaytaradi. Har urinishdan oldin shu ID raqamli obyekt qidiriladi:
-   * oldingi urinish obyektni yaratib, javobi yo'qolgan bo'lsa (timeout), ikkinchisi yaratilmaydi.
+   * Obyekt qo'shadi va objectId qaytaradi. Har urinishdan oldin aynan shu description bilan
+   * `boshlandi`dan keyin yaratilgan obyekt qidiriladi: oldingi urinish obyektni yaratib, javobi
+   * yo'qolgan bo'lsa (timeout), ikkinchisi yaratilmaydi. Vaqt sharti kerak — server umumiy,
+   * boshqalar ham xuddi shu namunaviy ID bilan yozadi.
    */
-  async yoz(idRaqam: string, description: string, geometry: EsriPolygon): Promise<number> {
-    const where = `description LIKE '${idRaqam.replace(/'/g, "''")} |%'`;
+  async yoz(description: string, geometry: EsriPolygon, boshlandi: Date): Promise<number> {
+    const where = `description = '${description.replace(/'/g, "''")}' AND created_date >= timestamp '${sqlVaqt(boshlandi)}'`;
     let oxirgi: unknown;
     for (let urinish = 1; urinish <= this.retries + 1; urinish++) {
       try {
