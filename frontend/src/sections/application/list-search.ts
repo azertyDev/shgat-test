@@ -1,15 +1,15 @@
 import { z } from 'zod';
 
-import { HOLATLAR, HUJJAT_TURLARI } from './types';
+import { DOCUMENT_TYPES, APPLICATION_STATUSES } from './types';
 
-/** Ro'yxat filtrlari URL'da saqlanadi (TanStack Router validateSearch). Noto'g'ri qiymat — e'tiborsiz. */
-export const royxatSearchSchema = z.object({
-  holat: z.enum(HOLATLAR).optional().catch(undefined),
-  hujjat_turi: z.enum(HUJJAT_TURLARI).optional().catch(undefined),
-  sahifa: z.coerce.number().int().min(1).optional().catch(undefined),
-  hajm: z.coerce.number().int().min(5).max(100).optional().catch(undefined),
+/** List filters live in the URL (TanStack Router validateSearch). Invalid values are ignored. */
+export const listSearchSchema = z.object({
+  status: z.enum(APPLICATION_STATUSES).optional().catch(undefined),
+  type: z.enum(DOCUMENT_TYPES).optional().catch(undefined),
+  page: z.coerce.number().int().min(1).optional().catch(undefined),
+  pageSize: z.coerce.number().int().min(5).max(100).optional().catch(undefined),
 });
 
-export type RoyxatSearch = z.infer<typeof royxatSearchSchema>;
+export type ListSearch = z.infer<typeof listSearchSchema>;
 
-export const STANDART_HAJM = 10;
+export const DEFAULT_PAGE_SIZE = 10;

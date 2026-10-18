@@ -11,40 +11,40 @@ import { useTranslate } from 'src/locales';
 import { toast } from 'src/components/snackbar';
 
 import { api } from '../api';
-import { arizaKeys, arizaQuery } from '../queries';
-import { ArizaForm } from '../components/application-form';
+import { applicationKeys, applicationQuery } from '../queries';
+import { ApplicationForm } from '../components/application-form';
 
 // ----------------------------------------------------------------------
 
-export function ArizaEditView({ id }: { id: number }) {
+export function ApplicationEditView({ id }: { id: number }) {
   const { t, localize } = useTranslate();
   const navigate = useNavigate();
-  const qc = useQueryClient();
-  const { data: ariza, isPending, error } = useQuery(arizaQuery(id));
+  const queryClient = useQueryClient();
+  const { data: application, isPending, error } = useQuery(applicationQuery(id));
 
   return (
     <Container maxWidth="lg">
       <Typography variant="h4" sx={{ mb: 3 }}>
-        {t('forma.tahrir')} #{id}
+        {t('form.editTitle')} #{id}
       </Typography>
 
       {isPending && <LinearProgress />}
       {error && <Alert severity="error">{localize(error.message)}</Alert>}
-      {ariza && ariza.holat !== 'qaytarilgan' && (
-        <Alert severity="info">{localize('Faqat qaytarilgan arizani tuzatib qayta yuborish mumkin')}</Alert>
+      {application && application.status !== 'RETURNED' && (
+        <Alert severity="info">{t('details.onlyReturnedEditable')}</Alert>
       )}
-      {ariza?.qaytarish_sababi && (
+      {application?.returnReason && (
         <Alert severity="warning" sx={{ mb: 3 }}>
-          <strong>{t('batafsil.qaytarishSababi')}:</strong> {ariza.qaytarish_sababi}
+          <strong>{t('details.returnReason')}:</strong> {application.returnReason}
         </Alert>
       )}
-      {ariza?.holat === 'qaytarilgan' && (
-        <ArizaForm
-          ariza={ariza}
-          onYuborish={(data, onProgress) => api.tuzat(id, data, onProgress)}
-          onMuvaffaqiyat={() => {
-            qc.invalidateQueries({ queryKey: arizaKeys.all });
-            toast.success(t('forma.yuborildi'));
+      {application?.status === 'RETURNED' && (
+        <ApplicationForm
+          application={application}
+          submit={(values, onProgress) => api.resubmit(id, values, onProgress)}
+          onSuccess={() => {
+            queryClient.invalidateQueries({ queryKey: applicationKeys.all });
+            toast.success(t('form.submitted'));
             navigate({ to: '/applications/$id', params: { id: String(id) } });
           }}
         />

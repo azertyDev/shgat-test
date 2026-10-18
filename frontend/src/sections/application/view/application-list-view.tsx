@@ -1,5 +1,5 @@
-import type { Holat } from '../types';
-import type { RoyxatSearch } from '../list-search';
+import type { ListSearch } from '../list-search';
+import type { ApplicationStatus } from '../types';
 
 import dayjs from 'dayjs';
 import { useQuery } from '@tanstack/react-query';
@@ -31,38 +31,38 @@ import { Iconify } from 'src/components/iconify';
 import { TableNoData } from 'src/components/table';
 import { Scrollbar } from 'src/components/scrollbar';
 
-import { useRol } from '../role-store';
-import { royxatQuery } from '../queries';
-import { STANDART_HAJM } from '../list-search';
-import { HOLATLAR, HUJJAT_TURLARI } from '../types';
-import { HolatLabel } from '../components/status-label';
+import { useRole } from '../role-store';
+import { applicationListQuery } from '../queries';
+import { DEFAULT_PAGE_SIZE } from '../list-search';
+import { StatusLabel } from '../components/status-label';
+import { DOCUMENT_TYPES, APPLICATION_STATUSES } from '../types';
 
 // ----------------------------------------------------------------------
 
-export function ArizaListView({ search }: { search: RoyxatSearch }) {
+export function ApplicationListView({ search }: { search: ListSearch }) {
   const { t, localize } = useTranslate();
-  const rol = useRol();
+  const role = useRole();
   const navigate = useNavigate({ from: '/' });
-  const sahifa = search.sahifa ?? 1;
-  const hajm = search.hajm ?? STANDART_HAJM;
+  const page = search.page ?? 1;
+  const pageSize = search.pageSize ?? DEFAULT_PAGE_SIZE;
 
   const { data, isFetching, isError, error } = useQuery(
-    royxatQuery({ holat: search.holat, hujjat_turi: search.hujjat_turi, sahifa, hajm })
+    applicationListQuery({ status: search.status, documentType: search.type, page, pageSize })
   );
 
-  const filtr = (patch: Partial<RoyxatSearch>) =>
-    navigate({ search: (prev) => ({ ...prev, ...patch, sahifa: patch.sahifa }) });
+  const setFilter = (patch: Partial<ListSearch>) =>
+    navigate({ search: (prev) => ({ ...prev, ...patch, page: patch.page }) });
 
-  const bugun = dayjs().format('YYYY-MM-DD');
-  const tekshiruvchi = rol === 'tekshiruvchi';
+  const today = dayjs().format('YYYY-MM-DD');
+  const isReviewer = role === 'REVIEWER';
 
   return (
     <Container maxWidth="lg">
       <Stack direction="row" sx={{ mb: 3, alignItems: 'center', justifyContent: 'space-between', gap: 2, flexWrap: 'wrap' }}>
-        <Typography variant="h4">{t('royxat.sarlavha')}</Typography>
-        {rol === 'ariza_beruvchi' && (
+        <Typography variant="h4">{t('list.title')}</Typography>
+        {role === 'APPLICANT' && (
           <ButtonLink to="/applications/new" variant="contained" startIcon={<Iconify icon="solar:add-circle-bold" />}>
-            {t('nav.yangi')}
+            {t('nav.newApplication')}
           </ButtonLink>
         )}
       </Stack>
@@ -72,32 +72,32 @@ export function ArizaListView({ search }: { search: RoyxatSearch }) {
           <TextField
             select
             size="small"
-            label={t('royxat.holat')}
-            value={search.holat ?? ''}
-            onChange={(e) => filtr({ holat: (e.target.value || undefined) as Holat | undefined })}
+            label={t('list.status')}
+            value={search.status ?? ''}
+            onChange={(e) => setFilter({ status: (e.target.value || undefined) as ApplicationStatus | undefined })}
             sx={{ minWidth: 200 }}
           >
-            <MenuItem value="">{t('royxat.barchasi')}</MenuItem>
-            {HOLATLAR.map((h) => (
+            <MenuItem value="">{t('list.all')}</MenuItem>
+            {APPLICATION_STATUSES.map((h) => (
               <MenuItem key={h} value={h}>
-                {t(`holat.${h}`)}
+                {t(`status.${h}`)}
               </MenuItem>
             ))}
           </TextField>
           <TextField
             select
             size="small"
-            label={t('royxat.tur')}
-            value={search.hujjat_turi ?? ''}
+            label={t('list.type')}
+            value={search.type ?? ''}
             onChange={(e) =>
-              filtr({ hujjat_turi: (e.target.value || undefined) as RoyxatSearch['hujjat_turi'] })
+              setFilter({ type: (e.target.value || undefined) as ListSearch['type'] })
             }
             sx={{ minWidth: 160 }}
           >
-            <MenuItem value="">{t('royxat.barchasi')}</MenuItem>
-            {HUJJAT_TURLARI.map((tur) => (
-              <MenuItem key={tur} value={tur}>
-                {tur}
+            <MenuItem value="">{t('list.all')}</MenuItem>
+            {DOCUMENT_TYPES.map((type) => (
+              <MenuItem key={type} value={type}>
+                {type}
               </MenuItem>
             ))}
           </TextField>
@@ -111,12 +111,12 @@ export function ArizaListView({ search }: { search: RoyxatSearch }) {
             <Table sx={{ minWidth: 820 }}>
               <TableHead>
                 <TableRow>
-                  <TableCell>{t('royxat.ustun.id_raqam')}</TableCell>
-                  <TableCell>{t('royxat.ustun.nomi')}</TableCell>
-                  <TableCell>{t('royxat.ustun.turi')}</TableCell>
-                  <TableCell>{t('royxat.ustun.hudud')}</TableCell>
-                  <TableCell>{t('royxat.ustun.holat')}</TableCell>
-                  <TableCell>{tekshiruvchi ? t('royxat.ustun.muddat') : t('royxat.ustun.yuborilgan')}</TableCell>
+                  <TableCell>{t('list.columns.registrationNumber')}</TableCell>
+                  <TableCell>{t('list.columns.documentName')}</TableCell>
+                  <TableCell>{t('list.columns.documentType')}</TableCell>
+                  <TableCell>{t('list.columns.region')}</TableCell>
+                  <TableCell>{t('list.columns.status')}</TableCell>
+                  <TableCell>{isReviewer ? t('list.columns.reviewDeadline') : t('list.columns.submittedAt')}</TableCell>
                 </TableRow>
               </TableHead>
               <TableBody>
@@ -128,34 +128,34 @@ export function ArizaListView({ search }: { search: RoyxatSearch }) {
                     onClick={() => navigate({ to: '/applications/$id', params: { id: String(a.id) } })}
                   >
                     <TableCell sx={{ whiteSpace: 'nowrap', fontWeight: 600 }}>
-                      {a.id_raqam ?? (
+                      {a.registrationNumber ?? (
                         <Typography variant="body2" component="span" sx={{ color: 'text.disabled' }}>
-                          #{a.id} · {t('royxat.idYoq')}
+                          #{a.id} · {t('list.notRegistered')}
                         </Typography>
                       )}
                     </TableCell>
                     <TableCell>
                       <Link to="/applications/$id" params={{ id: String(a.id) }} style={{ color: 'inherit' }} onClick={(e) => e.stopPropagation()}>
-                        {a.hujjat_nomi}
+                        {a.documentName}
                       </Link>
                     </TableCell>
-                    <TableCell>{a.hujjat_turi}</TableCell>
-                    <TableCell>{localize(a.hudud_nomi) || a.soato_kodi}</TableCell>
+                    <TableCell>{a.documentType}</TableCell>
+                    <TableCell>{localize(a.regionName) || a.soatoCode}</TableCell>
                     <TableCell>
-                      <HolatLabel holat={a.holat} />
+                      <StatusLabel status={a.status} />
                     </TableCell>
                     <TableCell sx={{ whiteSpace: 'nowrap' }}>
-                      {tekshiruvchi && a.muddat ? (
+                      {isReviewer && a.reviewDeadline ? (
                         <Stack direction="row" spacing={1} sx={{ alignItems: 'center' }}>
-                          <span>{dayjs(a.muddat).format('DD.MM.YYYY')}</span>
-                          {a.muddat < bugun && (
+                          <span>{dayjs(a.reviewDeadline).format('DD.MM.YYYY')}</span>
+                          {a.reviewDeadline < today && (
                             <Label color="error" variant="soft">
-                              {t('royxat.muddatOtgan')}
+                              {t('list.overdue')}
                             </Label>
                           )}
                         </Stack>
                       ) : (
-                        dayjs(a.yuborilgan_vaqt).format('DD.MM.YYYY HH:mm')
+                        dayjs(a.submittedAt).format('DD.MM.YYYY HH:mm')
                       )}
                     </TableCell>
                   </TableRow>
@@ -168,14 +168,14 @@ export function ArizaListView({ search }: { search: RoyxatSearch }) {
 
         <TablePagination
           component="div"
-          count={data?.jami ?? 0}
-          page={sahifa - 1}
-          rowsPerPage={hajm}
+          count={data?.total ?? 0}
+          page={page - 1}
+          rowsPerPage={pageSize}
           rowsPerPageOptions={[5, 10, 25, 50]}
-          labelRowsPerPage={t('royxat.sahifada')}
+          labelRowsPerPage={t('list.rowsPerPage')}
           labelDisplayedRows={({ from, to, count }) => `${from}–${to} / ${count}`}
-          onPageChange={(_, p) => filtr({ ...search, sahifa: p + 1 })}
-          onRowsPerPageChange={(e) => filtr({ hajm: Number(e.target.value) })}
+          onPageChange={(_, p) => setFilter({ ...search, page: p + 1 })}
+          onRowsPerPageChange={(e) => setFilter({ pageSize: Number(e.target.value) })}
         />
       </Card>
     </Container>

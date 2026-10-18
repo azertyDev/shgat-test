@@ -1,11 +1,11 @@
 import userEvent from '@testing-library/user-event';
 import { screen, within, waitFor } from '@testing-library/react';
 
-import { jsonJavob, renderWithProviders } from 'src/test/render';
+import { jsonResponse, renderWithProviders } from 'src/test/render';
 
-import { TekshiruvAmallari } from './review-actions';
+import { ReviewActions } from './review-actions';
 
-describe('TekshiruvAmallari', () => {
+describe('ReviewActions', () => {
   const fetchMock = vi.fn<typeof fetch>();
   beforeEach(() => {
     fetchMock.mockReset();
@@ -13,11 +13,11 @@ describe('TekshiruvAmallari', () => {
   });
   afterEach(() => vi.unstubAllGlobals());
 
-  it("409 — ID takrori oddiy tilda ko'rsatiladi", async () => {
+  it('explains a duplicate number (409) in plain language', async () => {
     fetchMock.mockResolvedValue(
-      jsonJavob(409, { xato: 'БР-1703401-2026 ID raqami allaqachon mavjud (ariza #1)' })
+      jsonResponse(409, { xato: 'БР-1703401-2026 ID raqami allaqachon mavjud (ariza #1)' })
     );
-    renderWithProviders(<TekshiruvAmallari id={2} />);
+    renderWithProviders(<ReviewActions id={2} />);
 
     await userEvent.click(screen.getByRole('button', { name: 'Tasdiqlash' }));
 
@@ -28,9 +28,9 @@ describe('TekshiruvAmallari', () => {
     expect((init?.headers as Record<string, string>)['X-Rol']).toBeDefined();
   });
 
-  it('502 — ArcGIS xatosi va qayta urinish tugmasi', async () => {
-    fetchMock.mockResolvedValue(jsonJavob(502, { xato: "ArcGIS qatlamiga yozib bo'lmadi (HTTP 503)" }));
-    renderWithProviders(<TekshiruvAmallari id={3} />);
+  it('shows the ArcGIS error (502) with a retry button', async () => {
+    fetchMock.mockResolvedValue(jsonResponse(502, { xato: "ArcGIS qatlamiga yozib bo'lmadi (HTTP 503)" }));
+    renderWithProviders(<ReviewActions id={3} />);
 
     await userEvent.click(screen.getByRole('button', { name: 'Tasdiqlash' }));
 
@@ -40,9 +40,9 @@ describe('TekshiruvAmallari', () => {
     await waitFor(() => expect(fetchMock).toHaveBeenCalledTimes(2));
   });
 
-  it('qaytarishda sabab majburiy', async () => {
-    fetchMock.mockResolvedValue(jsonJavob(200, { id: 3, holat: 'qaytarilgan' }));
-    renderWithProviders(<TekshiruvAmallari id={3} />);
+  it('requires a reason to return an application', async () => {
+    fetchMock.mockResolvedValue(jsonResponse(200, { id: 3, holat: 'qaytarilgan' }));
+    renderWithProviders(<ReviewActions id={3} />);
 
     await userEvent.click(screen.getByRole('button', { name: 'Qaytarish' }));
     const dialog = await screen.findByRole('dialog');

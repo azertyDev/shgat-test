@@ -9,26 +9,26 @@ import { useTranslate } from 'src/locales';
 import { toast } from 'src/components/snackbar';
 
 import { api } from '../api';
-import { arizaKeys } from '../queries';
-import { ArizaForm } from '../components/application-form';
+import { applicationKeys } from '../queries';
+import { ApplicationForm } from '../components/application-form';
 
 // ----------------------------------------------------------------------
 
-export function ArizaCreateView() {
+export function ApplicationCreateView() {
   const { t } = useTranslate();
   const navigate = useNavigate();
-  const qc = useQueryClient();
+  const queryClient = useQueryClient();
 
   return (
     <Container maxWidth="lg">
       <Typography variant="h4" sx={{ mb: 3 }}>
-        {t('forma.yangi')}
+        {t('form.createTitle')}
       </Typography>
-      <ArizaForm
-        onYuborish={api.yarat}
-        onMuvaffaqiyat={(id) => {
-          qc.invalidateQueries({ queryKey: arizaKeys.all });
-          toast.success(t('forma.yuborildi'));
+      <ApplicationForm
+        submit={api.create}
+        onSuccess={(id) => {
+          queryClient.invalidateQueries({ queryKey: applicationKeys.all });
+          toast.success(t('form.submitted'));
           navigate({ to: '/applications/$id', params: { id: String(id) } });
         }}
       />

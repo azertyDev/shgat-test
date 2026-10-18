@@ -8,7 +8,7 @@ export type ConfigValue = {
   serverUrl: string;
   assetsDir: string;
   arcgisLayerUrl: string;
-  /** ixtiyoriy: ArcGIS dasturchi kaliti (asos xarita uchun). Bo'sh bo'lsa — OSM. */
+  /** optional ArcGIS developer key (basemap). Empty -> OpenStreetMap. */
   arcgisApiKey: string;
 };
 

@@ -1,5 +1,5 @@
 import type { LangCode } from 'src/locales';
-import type { Rol } from 'src/sections/application/types';
+import type { Role } from 'src/sections/application/types';
 
 import { Link } from '@tanstack/react-router';
 
@@ -17,7 +17,7 @@ import { Logo } from 'src/components/logo';
 import { Iconify } from 'src/components/iconify';
 import { useSettingsContext } from 'src/components/settings';
 
-import { setRol, useRol } from 'src/sections/application/role-store';
+import { setRole, useRole } from 'src/sections/application/role-store';
 
 import { MainSection, LayoutSection, HeaderSection } from '../core';
 
@@ -26,7 +26,7 @@ import { MainSection, LayoutSection, HeaderSection } from '../core';
 export function AppLayout({ children }: { children: React.ReactNode }) {
   const { t, currentLang, onChangeLang } = useTranslate();
   const settings = useSettingsContext();
-  const rol = useRol();
+  const role = useRole();
 
   return (
     <LayoutSection
@@ -44,7 +44,7 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
                   noWrap
                   sx={{ color: 'text.primary', textDecoration: 'none', display: { xs: 'none', sm: 'block' } }}
                 >
-                  {t('app.nomi')}
+                  {t('app.name')}
                 </Typography>
               </Stack>
             ),
@@ -53,20 +53,20 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
                 <ToggleButtonGroup
                   exclusive
                   size="small"
-                  aria-label={t('rol.label')}
-                  value={rol}
-                  onChange={(_, v: Rol | null) => v && setRol(v)}
+                  aria-label={t('role.label')}
+                  value={role}
+                  onChange={(_, v: Role | null) => v && setRole(v)}
                 >
-                  <ToggleButton value="ariza_beruvchi" aria-label={t('rol.ariza_beruvchi')} sx={{ px: { xs: 1, sm: 1.5 } }}>
+                  <ToggleButton value="APPLICANT" aria-label={t('role.APPLICANT')} sx={{ px: { xs: 1, sm: 1.5 } }}>
                     <Iconify icon="solar:user-rounded-bold" width={18} />
                     <Box component="span" sx={{ ml: 0.75, display: { xs: 'none', md: 'inline' } }}>
-                      {t('rol.ariza_beruvchi')}
+                      {t('role.APPLICANT')}
                     </Box>
                   </ToggleButton>
-                  <ToggleButton value="tekshiruvchi" aria-label={t('rol.tekshiruvchi')} sx={{ px: { xs: 1, sm: 1.5 } }}>
+                  <ToggleButton value="REVIEWER" aria-label={t('role.REVIEWER')} sx={{ px: { xs: 1, sm: 1.5 } }}>
                     <Iconify icon="solar:shield-check-bold" width={18} />
                     <Box component="span" sx={{ ml: 0.75, display: { xs: 'none', md: 'inline' } }}>
-                      {t('rol.tekshiruvchi')}
+                      {t('role.REVIEWER')}
                     </Box>
                   </ToggleButton>
                 </ToggleButtonGroup>
@@ -74,7 +74,7 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
                 <ToggleButtonGroup
                   exclusive
                   size="small"
-                  aria-label={t('til.label')}
+                  aria-label={t('script.label')}
                   value={currentLang.value}
                   onChange={(_, v: LangCode | null) => v && onChangeLang(v)}
                 >

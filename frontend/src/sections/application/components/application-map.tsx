@@ -2,7 +2,7 @@ import '@arcgis/map-components/components/arcgis-map';
 import '@arcgis/map-components/components/arcgis-zoom';
 
 import type MapView from '@arcgis/core/views/MapView.js';
-import type { ArizaToliq } from '../types';
+import type { Application } from '../types';
 
 import Graphic from '@arcgis/core/Graphic.js';
 import { useMemo, useState, useEffect } from 'react';
@@ -18,21 +18,21 @@ import Typography from '@mui/material/Typography';
 import { CONFIG } from 'src/global-config';
 import { useTranslate } from 'src/locales';
 
-import { chegaraHalqalari } from '../boundary';
-import { POLIGON_BELGI, XARITA_MARKAZI } from './map-config';
+import { boundaryRings } from '../boundary';
+import { INITIAL_VIEW, BOUNDARY_SYMBOL } from './map-config';
 
 // ----------------------------------------------------------------------
 
-type Holati = 'yuklanmoqda' | 'tayyor' | 'topilmadi' | 'xato';
+type MapState = 'loading' | 'ready' | 'notFound' | 'error';
 
 /**
- * Hisobga olingan hujjat: chegara to'g'ridan-to'g'ri ochiq ArcGIS qatlamidan (objectid bo'yicha filtr).
- * Boshqa holatlarda — ariza ma'lumotidagi GeoJSON.
+ * Registered document: the boundary comes straight from the public ArcGIS layer (filtered by objectid).
+ * Any other status: the GeoJSON stored with the application.
  */
-export function ArizaXarita({ ariza }: { ariza: Pick<ArizaToliq, 'chegara' | 'holat' | 'arcgis_object_id'> }) {
+export function ApplicationMap({ application }: { application: Pick<Application, 'boundary' | 'status' | 'arcgisObjectId'> }) {
   const { t } = useTranslate();
-  const objectId = ariza.holat === 'hisobga_olingan' ? ariza.arcgis_object_id : null;
-  const [holati, setHolati] = useState<Holati>('yuklanmoqda');
+  const objectId = application.status === 'REGISTERED' ? application.arcgisObjectId : null;
+  const [mapState, setMapState] = useState<MapState>('loading');
   const [view, setView] = useState<MapView | null>(null);
 
   const layer = useMemo(
@@ -47,32 +47,32 @@ export function ArizaXarita({ ariza }: { ariza: Pick<ArizaToliq, 'chegara' | 'ho
         : new GraphicsLayer({
             graphics: [
               new Graphic({
-                geometry: new Polygon({ rings: chegaraHalqalari(ariza.chegara), spatialReference: { wkid: 4326 } }),
-                symbol: POLIGON_BELGI,
+                geometry: new Polygon({ rings: boundaryRings(application.boundary), spatialReference: { wkid: 4326 } }),
+                symbol: BOUNDARY_SYMBOL,
               }),
             ],
           }),
-    [objectId, ariza.chegara]
+    [objectId, application.boundary]
   );
 
-  // holat o'zgarsa (masalan, tasdiqlangandan keyin) qatlam almashadi — view qayta yaratilmaydi
+  // when the status changes (e.g. after approval) the layer is swapped; the view is not recreated
   useEffect(() => {
     if (!view) return undefined;
-    setHolati('yuklanmoqda');
+    setMapState('loading');
     view.map?.add(layer);
-    korsat(view);
+    showLayer(view);
     return () => {
       view.map?.remove(layer);
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [view, layer]);
 
-  const korsat = async (v: MapView) => {
+  const showLayer = async (v: MapView) => {
     try {
       if (layer instanceof FeatureLayer) {
         const { count, extent } = await layer.queryExtent();
         if (!count || !extent) {
-          setHolati('topilmadi');
+          setMapState('notFound');
           return;
         }
         await v.goTo(extent.clone().expand(1.5));
@@ -80,22 +80,22 @@ export function ArizaXarita({ ariza }: { ariza: Pick<ArizaToliq, 'chegara' | 'ho
         const ext = layer.graphics.getItemAt(0)?.geometry?.extent;
         if (ext) await v.goTo(ext.clone().expand(1.5));
       }
-      setHolati('tayyor');
+      setMapState('ready');
     } catch {
-      setHolati('xato');
+      setMapState('error');
     }
   };
 
   return (
     <Stack spacing={1}>
       <Typography variant="caption" sx={{ color: 'text.secondary' }}>
-        {objectId !== null ? t('xarita.qatlamdan', { id: objectId }) : t('xarita.bazadan')}
+        {objectId !== null ? t('map.fromLayer', { id: objectId }) : t('map.fromApplication')}
       </Typography>
       <Box sx={{ height: { xs: 300, md: 380 }, borderRadius: 1.5, overflow: 'hidden', border: (theme) => `1px solid ${theme.vars.palette.divider}` }}>
         <arcgis-map
           basemap="osm"
-          center={XARITA_MARKAZI.center}
-          zoom={XARITA_MARKAZI.zoom}
+          center={INITIAL_VIEW.center}
+          zoom={INITIAL_VIEW.zoom}
           style={{ height: '100%' }}
           onarcgisViewReadyChange={(e) => {
             if (e.target.ready) setView(e.target.view);
@@ -104,8 +104,8 @@ export function ArizaXarita({ ariza }: { ariza: Pick<ArizaToliq, 'chegara' | 'ho
           <arcgis-zoom slot="top-left" />
         </arcgis-map>
       </Box>
-      {holati === 'topilmadi' && <Alert severity="warning">{t('xarita.topilmadi', { id: objectId })}</Alert>}
-      {holati === 'xato' && <Alert severity="error">{t('xarita.qatlamXato')}</Alert>}
+      {mapState === 'notFound' && <Alert severity="warning">{t('map.notFound', { id: objectId })}</Alert>}
+      {mapState === 'error' && <Alert severity="error">{t('map.layerError')}</Alert>}
     </Stack>
   );
 }

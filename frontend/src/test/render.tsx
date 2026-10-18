@@ -24,5 +24,5 @@ export function renderWithProviders(ui: React.ReactElement, options?: RenderOpti
   );
 }
 
-export const jsonJavob = (status: number, body: unknown) =>
+export const jsonResponse = (status: number, body: unknown) =>
   new Response(JSON.stringify(body), { status, headers: { 'Content-Type': 'application/json' } });

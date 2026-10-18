@@ -1,71 +1,62 @@
-import type { Chegara, FaylTuri } from './types';
+import type { Boundary, FileField } from './types';
 
 import { z } from 'zod';
 import dayjs from 'dayjs';
 
-import { validateChegara } from './boundary';
-import { FAYL_TURLARI, HUJJAT_TURLARI } from './types';
+import { validateBoundary } from './boundary';
+import { FILE_FIELDS, DOCUMENT_TYPES } from './types';
 
-// Xabarlar lotinda; kirill rejimida `localize()` orqali o'giriladi.
+// Messages are in Uzbek Latin; the Cyrillic UI converts them with localize().
 
-export const MAX_FAYL_HAJMI = 20 * 1024 * 1024;
-const FAYL_MIME = ['application/pdf', 'image/jpeg', 'image/png'];
+export const MAX_FILE_SIZE = 20 * 1024 * 1024;
+const ALLOWED_MIME_TYPES = ['application/pdf', 'image/jpeg', 'image/png'];
 
-export const bugun = () => dayjs().format('YYYY-MM-DD');
+export const today = () => dayjs().format('YYYY-MM-DD');
 
-const faylSchema = (majburiy: boolean) =>
+const fileSchema = (required: boolean) =>
   z.custom<File | null>().superRefine((f, ctx) => {
     if (!f) {
-      if (majburiy) ctx.addIssue({ code: 'custom', message: 'Fayl majburiy' });
+      if (required) ctx.addIssue({ code: 'custom', message: 'Fayl majburiy' });
       return;
     }
-    if (f.size > MAX_FAYL_HAJMI) ctx.addIssue({ code: 'custom', message: 'Fayl hajmi 20 MB dan oshmasin' });
-    if (!FAYL_MIME.includes(f.type) && !/\.(pdf|jpe?g|png)$/i.test(f.name))
+    if (f.size > MAX_FILE_SIZE) ctx.addIssue({ code: 'custom', message: 'Fayl hajmi 20 MB dan oshmasin' });
+    if (!ALLOWED_MIME_TYPES.includes(f.type) && !/\.(pdf|jpe?g|png)$/i.test(f.name))
       ctx.addIssue({ code: 'custom', message: 'Faqat PDF, JPG yoki PNG fayl' });
   });
 
-export const arizaFormSchema = (fayllarMajburiy: boolean) =>
+export const applicationFormSchema = (filesRequired: boolean) =>
   z.object({
-    hujjat_nomi: z.string().trim().min(1, "Bo'sh bo'lmasin").max(255, '255 belgidan oshmasin'),
-    hujjat_turi: z.string().refine((v) => (HUJJAT_TURLARI as readonly string[]).includes(v), 'Hujjat turini tanlang'),
-    soato_kodi: z.string().regex(/^\d{7}$/, 'Hududni tanlang'),
-    tasdiq_sanasi: z
+    documentName: z.string().trim().min(1, "Bo'sh bo'lmasin").max(255, '255 belgidan oshmasin'),
+    documentType: z.string().refine((v) => (DOCUMENT_TYPES as readonly string[]).includes(v), 'Hujjat turini tanlang'),
+    soatoCode: z.string().regex(/^\d{7}$/, 'Hududni tanlang'),
+    approvalDate: z
       .string()
       .regex(/^\d{4}-\d{2}-\d{2}$/, 'Sanani kiriting')
-      .refine((s) => s <= bugun(), "Kelajakdagi sana bo'lmasin"),
-    tasdiq_hujjati: z.string().trim().min(1, "Bo'sh bo'lmasin").max(100, '100 belgidan oshmasin'),
-    chegara: z.custom<Chegara | null>().superRefine((g, ctx) => {
-      const x = g ? validateChegara(g) : 'Chegarani chizing yoki GeoJSON yuklang';
-      if (x) ctx.addIssue({ code: 'custom', message: x });
+      .refine((s) => s <= today(), "Kelajakdagi sana bo'lmasin"),
+    approvalDecree: z.string().trim().min(1, "Bo'sh bo'lmasin").max(100, '100 belgidan oshmasin'),
+    boundary: z.custom<Boundary | null>().superRefine((g, ctx) => {
+      const error = g ? validateBoundary(g) : 'Chegarani chizing yoki GeoJSON yuklang';
+      if (error) ctx.addIssue({ code: 'custom', message: error });
     }),
-    ...(Object.fromEntries(FAYL_TURLARI.map((t) => [t, faylSchema(fayllarMajburiy)])) as Record<
-      FaylTuri,
-      ReturnType<typeof faylSchema>
+    ...(Object.fromEntries(FILE_FIELDS.map((f) => [f, fileSchema(filesRequired)])) as Record<
+      FileField,
+      ReturnType<typeof fileSchema>
     >),
   });
 
-export type ArizaFormValues = {
-  hujjat_nomi: string;
-  hujjat_turi: string;
-  soato_kodi: string;
-  tasdiq_sanasi: string;
-  tasdiq_hujjati: string;
-  chegara: Chegara | null;
-} & Record<FaylTuri, File | null>;
+export type ApplicationFormValues = {
+  documentName: string;
+  documentType: string;
+  soatoCode: string;
+  approvalDate: string;
+  approvalDecree: string;
+  boundary: Boundary | null;
+} & Record<FileField, File | null>;
 
-/** {tur}-{soato}-{yil} — faqat ko'rsatish uchun; haqiqiy ID'ni server tasdiqlashda beradi. */
-export function bolajakId(v: Pick<ArizaFormValues, 'hujjat_turi' | 'soato_kodi' | 'tasdiq_sanasi'>) {
-  const yil = /^\d{4}/.exec(v.tasdiq_sanasi)?.[0];
-  return v.hujjat_turi && v.soato_kodi && yil ? `${v.hujjat_turi}-${v.soato_kodi}-${yil}` : '';
-}
-
-export function formDataga(v: ArizaFormValues): FormData {
-  const fd = new FormData();
-  const { chegara, hujjat_nomi, hujjat_turi, soato_kodi, tasdiq_sanasi, tasdiq_hujjati } = v;
-  fd.append('data', JSON.stringify({ hujjat_nomi, hujjat_turi, soato_kodi, tasdiq_sanasi, tasdiq_hujjati, chegara }));
-  for (const t of FAYL_TURLARI) {
-    const f = v[t];
-    if (f) fd.append(t, f);
-  }
-  return fd;
+/** {type}-{soato}-{year}, preview only: the real number is assigned by the server on approval. */
+export function futureRegistrationNumber(
+  v: Pick<ApplicationFormValues, 'documentType' | 'soatoCode' | 'approvalDate'>
+) {
+  const year = /^\d{4}/.exec(v.approvalDate)?.[0];
+  return v.documentType && v.soatoCode && year ? `${v.documentType}-${v.soatoCode}-${year}` : '';
 }

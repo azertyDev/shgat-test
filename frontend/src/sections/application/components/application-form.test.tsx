@@ -1,15 +1,16 @@
-import type { ArizaToliq } from '../types';
+import type { Application } from '../types';
 
 import userEvent from '@testing-library/user-event';
 import { screen, waitFor, fireEvent } from '@testing-library/react';
 
-import { jsonJavob, renderWithProviders } from 'src/test/render';
+import { jsonResponse, renderWithProviders } from 'src/test/render';
 
-import { ArizaForm } from './application-form';
+import { ApiError } from '../api';
+import { ApplicationForm } from './application-form';
 
-// ArcGIS xaritasi jsdom'da ishlamaydi — o'rniga chegara tanlovchi tugma
+// the ArcGIS map does not run in jsdom: a button that sets a boundary stands in for it
 vi.mock('./boundary-editor', () => ({
-  ChegaraXarita: ({ onChange, error }: { onChange: (g: unknown) => void; error?: string }) => (
+  BoundaryEditor: ({ onChange, error }: { onChange: (g: unknown) => void; error?: string }) => (
     <div>
       <button
         type="button"
@@ -17,84 +18,82 @@ vi.mock('./boundary-editor', () => ({
           onChange({ type: 'Polygon', coordinates: [[[72.3, 40.75], [72.4, 40.75], [72.4, 40.81], [72.3, 40.75]]] })
         }
       >
-        chegara-tanlash
+        pick-boundary
       </button>
       {error && <span>{error}</span>}
     </div>
   ),
 }));
 
-const ariza: ArizaToliq = {
+const application: Application = {
   id: 5,
-  id_raqam: null,
-  hujjat_nomi: 'Andijon shahri bosh rejasi',
-  hujjat_turi: 'БР',
-  soato_kodi: '1703401',
-  hudud_nomi: 'Andijon shahri',
-  holat: 'qaytarilgan',
-  yuborilgan_vaqt: '2026-10-18T08:00:00Z',
-  muddat: null,
-  tasdiq_sanasi: '2026-03-12',
-  tasdiq_hujjati: '123-son qaror',
-  chegara: { type: 'Polygon', coordinates: [[[72.3, 40.75], [72.4, 40.75], [72.4, 40.81], [72.3, 40.75]]] },
-  arcgis_object_id: null,
-  qaytarish_sababi: 'Sana xato',
-  fayllar: [],
+  registrationNumber: null,
+  documentName: 'Andijon shahri bosh rejasi',
+  documentType: 'БР',
+  soatoCode: '1703401',
+  regionName: 'Andijon shahri',
+  status: 'RETURNED',
+  submittedAt: '2026-10-18T08:00:00Z',
+  reviewDeadline: null,
+  approvalDate: '2026-03-12',
+  approvalDecree: '123-son qaror',
+  boundary: { type: 'Polygon', coordinates: [[[72.3, 40.75], [72.4, 40.75], [72.4, 40.81], [72.3, 40.75]]] },
+  arcgisObjectId: null,
+  returnReason: 'Sana xato',
+  files: [],
 };
 
-describe('ArizaForm', () => {
+describe('ApplicationForm', () => {
   beforeEach(() => {
-    vi.stubGlobal('fetch', vi.fn(async () => jsonJavob(200, [{ kod: '1703401', nomi: 'Andijon shahri' }])));
+    vi.stubGlobal('fetch', vi.fn(async () => jsonResponse(200, [{ kod: '1703401', nomi: 'Andijon shahri' }])));
   });
   afterEach(() => vi.unstubAllGlobals());
 
-  it("bo'sh forma yuborilmaydi, xatolar maydonlar yonida", async () => {
-    const onYuborish = vi.fn();
-    renderWithProviders(<ArizaForm onYuborish={onYuborish} onMuvaffaqiyat={vi.fn()} />);
+  it('does not submit an empty form and shows errors next to the fields', async () => {
+    const submit = vi.fn();
+    renderWithProviders(<ApplicationForm submit={submit} onSuccess={vi.fn()} />);
 
     await userEvent.click(screen.getByRole('button', { name: 'Yuborish' }));
 
     expect(await screen.findAllByText('Fayl majburiy')).toHaveLength(3);
     expect(screen.getByText('Chegarani chizing yoki GeoJSON yuklang')).toBeInTheDocument();
     expect(screen.getAllByText("Bo'sh bo'lmasin").length).toBeGreaterThan(0);
-    expect(onYuborish).not.toHaveBeenCalled();
+    expect(submit).not.toHaveBeenCalled();
   });
 
-  it("bo'lajak ID sana o'zgarsa yangilanadi", async () => {
-    renderWithProviders(<ArizaForm ariza={ariza} onYuborish={vi.fn()} onMuvaffaqiyat={vi.fn()} />);
-    const id = screen.getByLabelText("Bo'lajak ID raqam");
-    expect(id).toHaveValue('БР-1703401-2026');
+  it('updates the future registration number when the date changes', async () => {
+    renderWithProviders(<ApplicationForm application={application} submit={vi.fn()} onSuccess={vi.fn()} />);
+    const number = screen.getByLabelText("Bo'lajak ID raqam");
+    expect(number).toHaveValue('БР-1703401-2026');
 
     fireEvent.change(screen.getByLabelText('Tasdiqlangan sana'), { target: { value: '2024-05-01' } });
-    await waitFor(() => expect(id).toHaveValue('БР-1703401-2024'));
+    await waitFor(() => expect(number).toHaveValue('БР-1703401-2024'));
   });
 
-  it('25 MB fayl rad etiladi', async () => {
-    renderWithProviders(<ArizaForm onYuborish={vi.fn()} onMuvaffaqiyat={vi.fn()} />);
-    const katta = new File(['x'], 'katta.pdf', { type: 'application/pdf' });
-    Object.defineProperty(katta, 'size', { value: 25 * 1024 * 1024 });
+  it('rejects a 25 MB file', async () => {
+    renderWithProviders(<ApplicationForm submit={vi.fn()} onSuccess={vi.fn()} />);
+    const tooBig = new File(['x'], 'big.pdf', { type: 'application/pdf' });
+    Object.defineProperty(tooBig, 'size', { value: 25 * 1024 * 1024 });
 
-    await userEvent.upload(screen.getByLabelText('Asosiy chizma'), katta);
+    await userEvent.upload(screen.getByLabelText('Asosiy chizma'), tooBig);
 
     expect(await screen.findByText('Fayl hajmi 20 MB dan oshmasin')).toBeInTheDocument();
   });
 
-  it('server 422 xatolari maydon yonida, fayllarsiz tahrir yuboriladi', async () => {
-    const onYuborish = vi
+  it('shows server 422 errors next to the field and allows resubmitting', async () => {
+    const submit = vi
       .fn()
-      .mockRejectedValueOnce(
-        Object.assign(new (await import('../api')).ApiXato(422, "Ma'lumotlar noto'g'ri", { soato_kodi: "SOATO ro'yxatida yo'q" }))
-      )
+      .mockRejectedValueOnce(new ApiError(422, "Ma'lumotlar noto'g'ri", { soatoCode: "SOATO ro'yxatida yo'q" }))
       .mockResolvedValueOnce({ id: 5 });
-    const onMuvaffaqiyat = vi.fn();
-    renderWithProviders(<ArizaForm ariza={ariza} onYuborish={onYuborish} onMuvaffaqiyat={onMuvaffaqiyat} />);
+    const onSuccess = vi.fn();
+    renderWithProviders(<ApplicationForm application={application} submit={submit} onSuccess={onSuccess} />);
 
     await userEvent.click(screen.getByRole('button', { name: 'Qayta yuborish' }));
     expect(await screen.findByText("SOATO ro'yxatida yo'q")).toBeInTheDocument();
-    expect(onYuborish).toHaveBeenCalledTimes(1);
-    expect((onYuborish.mock.calls[0][0] as FormData).has('asosiy_chizma')).toBe(false);
+    expect(submit).toHaveBeenCalledTimes(1);
+    expect(submit.mock.calls[0][0].mainDrawing).toBeNull(); // edit without new files
 
     await userEvent.click(screen.getByRole('button', { name: 'Qayta yuborish' }));
-    await waitFor(() => expect(onMuvaffaqiyat).toHaveBeenCalledWith(5));
+    await waitFor(() => expect(onSuccess).toHaveBeenCalledWith(5));
   });
 });

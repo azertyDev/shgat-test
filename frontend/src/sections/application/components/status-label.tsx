@@ -1,4 +1,4 @@
-import type { Holat } from '../types';
+import type { ApplicationStatus } from '../types';
 import type { LabelColor } from 'src/components/label';
 
 import { useTranslate } from 'src/locales';
@@ -7,17 +7,17 @@ import { Label } from 'src/components/label';
 
 // ----------------------------------------------------------------------
 
-const RANG: Record<Holat, LabelColor> = {
-  yuborilgan: 'info',
-  hisobga_olingan: 'success',
-  qaytarilgan: 'warning',
+const STATUS_COLOR: Record<ApplicationStatus, LabelColor> = {
+  SUBMITTED: 'info',
+  REGISTERED: 'success',
+  RETURNED: 'warning',
 };
 
-export function HolatLabel({ holat }: { holat: Holat }) {
+export function StatusLabel({ status }: { status: ApplicationStatus }) {
   const { t } = useTranslate();
   return (
-    <Label variant="soft" color={RANG[holat]}>
-      {t(`holat.${holat}`)}
+    <Label variant="soft" color={STATUS_COLOR[status]}>
+      {t(`status.${status}`)}
     </Label>
   );
 }

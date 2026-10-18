@@ -14,49 +14,49 @@ import { useTranslate } from 'src/locales';
 import { toast } from 'src/components/snackbar';
 import { Iconify } from 'src/components/iconify';
 
-import { ApiXato } from '../api';
-import { useQaytarish, useTasdiqlash } from '../queries';
+import { ApiError } from '../api';
+import { useApprove, useReturnToApplicant } from '../queries';
 
 // ----------------------------------------------------------------------
 
-/** 409 va 502 — tekshiruvchi uchun oddiy tilda; server xabari tafsilot sifatida qoladi. */
-function useXatoMatni() {
+/** 409 and 502 are explained in plain language; the server message stays as a detail. */
+function useErrorText() {
   const { t, localize } = useTranslate();
   return (e: unknown) => {
-    if (!(e instanceof ApiXato)) return { asosiy: t('xato.umumiy'), tafsilot: '' };
-    if (e.status === 409 && /ID raqami/.test(e.message)) return { asosiy: t('tekshiruv.takror'), tafsilot: localize(e.message) };
-    if (e.status === 502) return { asosiy: t('tekshiruv.arcgis'), tafsilot: localize(e.message) };
-    return { asosiy: localize(e.message), tafsilot: '' };
+    if (!(e instanceof ApiError)) return { summary: t('error.generic'), detail: '' };
+    if (e.status === 409 && /ID raqami/.test(e.message)) return { summary: t('review.duplicate'), detail: localize(e.message) };
+    if (e.status === 502) return { summary: t('review.arcgisFailed'), detail: localize(e.message) };
+    return { summary: localize(e.message), detail: '' };
   };
 }
 
-export function TekshiruvAmallari({ id }: { id: number }) {
+export function ReviewActions({ id }: { id: number }) {
   const { t } = useTranslate();
-  const xatoMatni = useXatoMatni();
-  const tasdiq = useTasdiqlash(id);
-  const qaytar = useQaytarish(id);
-  const [dialog, setDialog] = useState(false);
-  const [sabab, setSabab] = useState('');
-  const [sababTegildi, setSababTegildi] = useState(false);
+  const errorText = useErrorText();
+  const approve = useApprove(id);
+  const returnMutation = useReturnToApplicant(id);
+  const [dialogOpen, setDialogOpen] = useState(false);
+  const [reason, setReason] = useState('');
+  const [reasonTouched, setReasonTouched] = useState(false);
 
-  const tasdiqXato = tasdiq.error ? xatoMatni(tasdiq.error) : null;
-  const sababXato = sababTegildi && !sabab.trim() ? t('tekshiruv.sababMajburiy') : '';
+  const approveError = approve.error ? errorText(approve.error) : null;
+  const reasonError = reasonTouched && !reason.trim() ? t('review.reasonRequired') : '';
 
   return (
     <Stack spacing={2}>
-      {tasdiqXato && (
+      {approveError && (
         <Alert
           severity="error"
           action={
-            tasdiq.error instanceof ApiXato && tasdiq.error.status === 502 ? (
-              <Button color="inherit" size="small" onClick={() => tasdiq.mutate()}>
-                {t('tekshiruv.tasdiqlash')}
+            approve.error instanceof ApiError && approve.error.status === 502 ? (
+              <Button color="inherit" size="small" onClick={() => approve.mutate()}>
+                {t('review.approve')}
               </Button>
             ) : undefined
           }
         >
-          {tasdiqXato.asosiy}
-          {tasdiqXato.tafsilot && <div style={{ opacity: 0.72, marginTop: 4 }}>{tasdiqXato.tafsilot}</div>}
+          {approveError.summary}
+          {approveError.detail && <div style={{ opacity: 0.72, marginTop: 4 }}>{approveError.detail}</div>}
         </Alert>
       )}
 
@@ -64,29 +64,29 @@ export function TekshiruvAmallari({ id }: { id: number }) {
         <Button
           variant="outlined"
           color="warning"
-          disabled={tasdiq.isPending}
+          disabled={approve.isPending}
           startIcon={<Iconify icon="solar:close-circle-bold" />}
-          onClick={() => setDialog(true)}
+          onClick={() => setDialogOpen(true)}
         >
-          {t('tekshiruv.qaytarish')}
+          {t('review.return')}
         </Button>
         <Button
           variant="contained"
           color="success"
-          loading={tasdiq.isPending}
+          loading={approve.isPending}
           startIcon={<Iconify icon="solar:check-circle-bold" />}
           onClick={() =>
-            tasdiq.mutate(undefined, {
-              onSuccess: (r) => toast.success(t('tekshiruv.tasdiqlandi', { id: r.id_raqam })),
+            approve.mutate(undefined, {
+              onSuccess: (r) => toast.success(t('review.approved', { number: r.registrationNumber })),
             })
           }
         >
-          {t('tekshiruv.tasdiqlash')}
+          {t('review.approve')}
         </Button>
       </Stack>
 
-      <Dialog open={dialog} onClose={() => setDialog(false)} fullWidth maxWidth="sm">
-        <DialogTitle>{t('tekshiruv.qaytarish')}</DialogTitle>
+      <Dialog open={dialogOpen} onClose={() => setDialogOpen(false)} fullWidth maxWidth="sm">
+        <DialogTitle>{t('review.return')}</DialogTitle>
         <DialogContent>
           <TextField
             autoFocus
@@ -94,39 +94,39 @@ export function TekshiruvAmallari({ id }: { id: number }) {
             multiline
             minRows={3}
             sx={{ mt: 1 }}
-            label={t('tekshiruv.sabab')}
-            value={sabab}
-            onChange={(e) => setSabab(e.target.value)}
-            onBlur={() => setSababTegildi(true)}
-            error={!!sababXato}
-            helperText={sababXato}
+            label={t('review.reason')}
+            value={reason}
+            onChange={(e) => setReason(e.target.value)}
+            onBlur={() => setReasonTouched(true)}
+            error={!!reasonError}
+            helperText={reasonError}
           />
-          {qaytar.error && (
+          {returnMutation.error && (
             <Alert severity="error" sx={{ mt: 2 }}>
-              {xatoMatni(qaytar.error).asosiy}
+              {errorText(returnMutation.error).summary}
             </Alert>
           )}
         </DialogContent>
         <DialogActions>
-          <Button color="inherit" onClick={() => setDialog(false)}>
-            {t('tekshiruv.bekor')}
+          <Button color="inherit" onClick={() => setDialogOpen(false)}>
+            {t('review.cancel')}
           </Button>
           <Button
             variant="contained"
             color="warning"
-            loading={qaytar.isPending}
+            loading={returnMutation.isPending}
             onClick={() => {
-              setSababTegildi(true);
-              if (!sabab.trim()) return;
-              qaytar.mutate(sabab.trim(), {
+              setReasonTouched(true);
+              if (!reason.trim()) return;
+              returnMutation.mutate(reason.trim(), {
                 onSuccess: () => {
-                  setDialog(false);
-                  toast.success(t('tekshiruv.qaytarildi'));
+                  setDialogOpen(false);
+                  toast.success(t('review.returned'));
                 },
               });
             }}
           >
-            {t('tekshiruv.qaytarish')}
+            {t('review.return')}
           </Button>
         </DialogActions>
       </Dialog>

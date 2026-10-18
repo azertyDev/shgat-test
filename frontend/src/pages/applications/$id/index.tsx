@@ -1,6 +1,6 @@
 import { createFileRoute } from '@tanstack/react-router';
 
-import { ArizaDetailsView } from 'src/sections/application/view';
+import { ApplicationDetailsView } from 'src/sections/application/view';
 
 // ----------------------------------------------------------------------
 
@@ -9,5 +9,5 @@ export const Route = createFileRoute('/applications/$id/')({
 });
 
 function RouteComponent() {
-  return <ArizaDetailsView id={Number(Route.useParams().id)} />;
+  return <ApplicationDetailsView id={Number(Route.useParams().id)} />;
 }

@@ -30,7 +30,7 @@ function SahifaYoq() {
   const { t } = useTranslate();
   return (
     <Container>
-      <EmptyContent filled title={t('xato.sahifaYoq')} sx={{ py: 10 }} />
+      <EmptyContent filled title={t('error.pageNotFound')} sx={{ py: 10 }} />
     </Container>
   );
 }

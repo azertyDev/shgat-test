@@ -21,16 +21,16 @@ import { useTranslate } from 'src/locales';
 import { Iconify } from 'src/components/iconify';
 import { FileThumbnail } from 'src/components/file-thumbnail';
 
-import { faylUrl } from '../api';
-import { useRol } from '../role-store';
-import { arizaQuery } from '../queries';
-import { HolatLabel } from '../components/status-label';
-import { ArizaXarita } from '../components/application-map';
-import { TekshiruvAmallari } from '../components/review-actions';
+import { fileUrl } from '../api';
+import { useRole } from '../role-store';
+import { applicationQuery } from '../queries';
+import { StatusLabel } from '../components/status-label';
+import { ReviewActions } from '../components/review-actions';
+import { ApplicationMap } from '../components/application-map';
 
 // ----------------------------------------------------------------------
 
-function Qator({ label, children }: { label: string; children: React.ReactNode }) {
+function InfoRow({ label, children }: { label: string; children: React.ReactNode }) {
   return (
     <Stack direction={{ xs: 'column', sm: 'row' }} spacing={{ xs: 0.25, sm: 2 }}>
       <Typography variant="body2" sx={{ color: 'text.secondary', minWidth: 190, flexShrink: 0 }}>
@@ -43,10 +43,10 @@ function Qator({ label, children }: { label: string; children: React.ReactNode }
   );
 }
 
-export function ArizaDetailsView({ id }: { id: number }) {
+export function ApplicationDetailsView({ id }: { id: number }) {
   const { t, localize } = useTranslate();
-  const rol = useRol();
-  const { data: a, isPending, error } = useQuery(arizaQuery(id));
+  const role = useRole();
+  const { data: a, isPending, error } = useQuery(applicationQuery(id));
 
   if (isPending) return <LinearProgress />;
   if (error)
@@ -60,61 +60,61 @@ export function ArizaDetailsView({ id }: { id: number }) {
     <Container maxWidth="lg">
       <Stack direction="row" spacing={2} sx={{ mb: 3, alignItems: 'center', flexWrap: 'wrap', rowGap: 1 }}>
         <ButtonLink to="/" color="inherit" startIcon={<Iconify icon="eva:arrow-ios-back-fill" />}>
-          {t('nav.arizalar')}
+          {t('nav.applications')}
         </ButtonLink>
         <Typography variant="h4" sx={{ flexGrow: 1 }}>
-          {a.id_raqam ?? `#${a.id}`}
+          {a.registrationNumber ?? `#${a.id}`}
         </Typography>
-        <HolatLabel holat={a.holat} />
+        <StatusLabel status={a.status} />
       </Stack>
 
-      {a.holat === 'qaytarilgan' && (
+      {a.status === 'RETURNED' && (
         <Alert
           severity="warning"
           sx={{ mb: 3 }}
           action={
-            rol === 'ariza_beruvchi' && (
+            role === 'APPLICANT' && (
               <ButtonLink to="/applications/$id/edit" params={{ id: String(a.id) }} color="inherit" size="small" startIcon={<Iconify icon="solar:pen-bold" />}>
-                {t('batafsil.tuzatish')}
+                {t('details.fixAndResubmit')}
               </ButtonLink>
             )
           }
         >
-          <strong>{t('batafsil.qaytarishSababi')}:</strong> {a.qaytarish_sababi}
+          <strong>{t('details.returnReason')}:</strong> {a.returnReason}
         </Alert>
       )}
 
       <Grid container spacing={3}>
         <Grid size={{ xs: 12, md: 5 }}>
           <Card>
-            <CardHeader title={t('batafsil.malumotlar')} />
+            <CardHeader title={t('details.info')} />
             <Stack spacing={1.5} sx={{ p: 3 }} divider={<Divider flexItem sx={{ borderStyle: 'dashed' }} />}>
-              <Qator label={t('royxat.ustun.id_raqam')}>{a.id_raqam ?? t('royxat.idYoq')}</Qator>
-              <Qator label={t('forma.hujjat_nomi')}>{a.hujjat_nomi}</Qator>
-              <Qator label={t('forma.hujjat_turi')}>{a.hujjat_turi}</Qator>
-              <Qator label={t('forma.soato_kodi')}>
-                {a.soato_kodi} — {localize(a.hudud_nomi)}
-              </Qator>
-              <Qator label={t('forma.tasdiq_sanasi')}>{dayjs(a.tasdiq_sanasi).format('DD.MM.YYYY')}</Qator>
-              <Qator label={t('forma.tasdiq_hujjati')}>{a.tasdiq_hujjati}</Qator>
-              <Qator label={t('royxat.ustun.yuborilgan')}>{dayjs(a.yuborilgan_vaqt).format('DD.MM.YYYY HH:mm')}</Qator>
-              {a.muddat && <Qator label={t('batafsil.muddat')}>{dayjs(a.muddat).format('DD.MM.YYYY')}</Qator>}
-              {a.arcgis_object_id !== null && <Qator label={t('batafsil.arcgisId')}>{a.arcgis_object_id}</Qator>}
+              <InfoRow label={t('list.columns.registrationNumber')}>{a.registrationNumber ?? t('list.notRegistered')}</InfoRow>
+              <InfoRow label={t('form.documentName')}>{a.documentName}</InfoRow>
+              <InfoRow label={t('form.documentType')}>{a.documentType}</InfoRow>
+              <InfoRow label={t('form.soatoCode')}>
+                {a.soatoCode} — {localize(a.regionName)}
+              </InfoRow>
+              <InfoRow label={t('form.approvalDate')}>{dayjs(a.approvalDate).format('DD.MM.YYYY')}</InfoRow>
+              <InfoRow label={t('form.approvalDecree')}>{a.approvalDecree}</InfoRow>
+              <InfoRow label={t('list.columns.submittedAt')}>{dayjs(a.submittedAt).format('DD.MM.YYYY HH:mm')}</InfoRow>
+              {a.reviewDeadline && <InfoRow label={t('details.reviewDeadline')}>{dayjs(a.reviewDeadline).format('DD.MM.YYYY')}</InfoRow>}
+              {a.arcgisObjectId !== null && <InfoRow label={t('details.arcgisId')}>{a.arcgisObjectId}</InfoRow>}
             </Stack>
           </Card>
 
           <Card sx={{ mt: 3 }}>
-            <CardHeader title={t('batafsil.fayllar')} />
+            <CardHeader title={t('details.files')} />
             <Stack spacing={1.5} sx={{ p: 3 }}>
-              {a.fayllar.map((f) => (
-                <Stack key={f.tur} direction="row" spacing={1.5} sx={{ alignItems: 'center' }}>
-                  <FileThumbnail file={f.nomi} sx={{ width: 36, height: 36 }} />
+              {a.files.map((f) => (
+                <Stack key={f.field} direction="row" spacing={1.5} sx={{ alignItems: 'center' }}>
+                  <FileThumbnail file={f.name} sx={{ width: 36, height: 36 }} />
                   <Stack sx={{ minWidth: 0 }}>
-                    <MuiLink href={faylUrl(f.url)} target="_blank" rel="noopener" variant="subtitle2" noWrap>
-                      {t(`forma.fayl.${f.tur}`)}
+                    <MuiLink href={fileUrl(f.url)} target="_blank" rel="noopener" variant="subtitle2" noWrap>
+                      {t(`form.file.${f.field}`)}
                     </MuiLink>
                     <Typography variant="caption" noWrap sx={{ color: 'text.secondary' }}>
-                      {f.nomi} · {fData(f.hajm)}
+                      {f.name} · {fData(f.size)}
                     </Typography>
                   </Stack>
                 </Stack>
@@ -125,15 +125,15 @@ export function ArizaDetailsView({ id }: { id: number }) {
 
         <Grid size={{ xs: 12, md: 7 }}>
           <Card>
-            <CardHeader title={t('batafsil.xarita')} />
+            <CardHeader title={t('details.map')} />
             <Stack sx={{ p: 3 }}>
-              <ArizaXarita ariza={a} />
+              <ApplicationMap application={a} />
             </Stack>
           </Card>
 
-          {rol === 'tekshiruvchi' && a.holat === 'yuborilgan' && (
+          {role === 'REVIEWER' && a.status === 'SUBMITTED' && (
             <Card sx={{ mt: 3, p: 3 }}>
-              <TekshiruvAmallari id={a.id} />
+              <ReviewActions id={a.id} />
             </Card>
           )}
         </Grid>

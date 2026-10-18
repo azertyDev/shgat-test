@@ -1,15 +1,15 @@
 import { createFileRoute } from '@tanstack/react-router';
 
-import { ArizaListView } from 'src/sections/application/view';
-import { royxatSearchSchema } from 'src/sections/application/list-search';
+import { ApplicationListView } from 'src/sections/application/view';
+import { listSearchSchema } from 'src/sections/application/list-search';
 
 // ----------------------------------------------------------------------
 
 export const Route = createFileRoute('/')({
-  validateSearch: royxatSearchSchema,
+  validateSearch: listSearchSchema,
   component: RouteComponent,
 });
 
 function RouteComponent() {
-  return <ArizaListView search={Route.useSearch()} />;
+  return <ApplicationListView search={Route.useSearch()} />;
 }

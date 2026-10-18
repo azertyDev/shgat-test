@@ -1,38 +1,38 @@
-import type { Rol } from './types';
+import type { Role } from './types';
 
 import { useSyncExternalStore } from 'react';
 
-// Soddalashtirilgan rol (X-Rol sarlavhasi). API qatlami hook'siz o'qiy olishi uchun tashqi store.
+// Simplified role (X-Rol header). An external store, so the API layer can read it without hooks.
 
-const KALIT = 'shgat-rol';
-const tinglovchilar = new Set<() => void>();
-let joriy: Rol = oqi();
+const STORAGE_KEY = 'shgat-role';
+const listeners = new Set<() => void>();
+let current: Role = readStoredRole();
 
-function oqi(): Rol {
+function readStoredRole(): Role {
   try {
-    return localStorage.getItem(KALIT) === 'tekshiruvchi' ? 'tekshiruvchi' : 'ariza_beruvchi';
+    return localStorage.getItem(STORAGE_KEY) === 'REVIEWER' ? 'REVIEWER' : 'APPLICANT';
   } catch {
-    return 'ariza_beruvchi';
+    return 'APPLICANT';
   }
 }
 
-export const getRol = () => joriy;
+export const getRole = () => current;
 
-export function setRol(rol: Rol) {
-  joriy = rol;
+export function setRole(role: Role) {
+  current = role;
   try {
-    localStorage.setItem(KALIT, rol);
+    localStorage.setItem(STORAGE_KEY, role);
   } catch {
-    // private rejim: rol faqat shu sessiyada saqlanadi
+    // private mode: the role lives for this session only
   }
-  tinglovchilar.forEach((f) => f());
+  listeners.forEach((notify) => notify());
 }
 
-export const useRol = () =>
+export const useRole = () =>
   useSyncExternalStore(
-    (f) => {
-      tinglovchilar.add(f);
-      return () => tinglovchilar.delete(f);
+    (notify) => {
+      listeners.add(notify);
+      return () => listeners.delete(notify);
     },
-    getRol
+    getRole
   );

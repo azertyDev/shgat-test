@@ -1,4 +1,4 @@
-import type { RoyxatSorovi } from './types';
+import type { ListQuery } from './types';
 
 import { useMutation, queryOptions, useQueryClient, keepPreviousData } from '@tanstack/react-query';
 
@@ -6,25 +6,29 @@ import { api } from './api';
 
 // ----------------------------------------------------------------------
 
-export const arizaKeys = {
-  all: ['arizalar'] as const,
-  royxat: (q: RoyxatSorovi) => [...arizaKeys.all, 'royxat', q] as const,
-  bitta: (id: number) => [...arizaKeys.all, 'bitta', id] as const,
+export const applicationKeys = {
+  all: ['applications'] as const,
+  list: (q: ListQuery) => [...applicationKeys.all, 'list', q] as const,
+  detail: (id: number) => [...applicationKeys.all, 'detail', id] as const,
 };
 
-export const royxatQuery = (q: RoyxatSorovi) =>
-  queryOptions({ queryKey: arizaKeys.royxat(q), queryFn: () => api.royxat(q), placeholderData: keepPreviousData });
+export const applicationListQuery = (q: ListQuery) =>
+  queryOptions({ queryKey: applicationKeys.list(q), queryFn: () => api.list(q), placeholderData: keepPreviousData });
 
-export const arizaQuery = (id: number) =>
-  queryOptions({ queryKey: arizaKeys.bitta(id), queryFn: () => api.bitta(id) });
+export const applicationQuery = (id: number) =>
+  queryOptions({ queryKey: applicationKeys.detail(id), queryFn: () => api.get(id) });
 
 export const soatoQuery = queryOptions({ queryKey: ['soato'], queryFn: api.soato, staleTime: Infinity });
 
-function useArizaMutation<TArg, TRes>(fn: (arg: TArg) => Promise<TRes>) {
-  const qc = useQueryClient();
-  return useMutation({ mutationFn: fn, onSettled: () => qc.invalidateQueries({ queryKey: arizaKeys.all }) });
+function useApplicationMutation<TArg, TResult>(fn: (arg: TArg) => Promise<TResult>) {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: fn,
+    onSettled: () => queryClient.invalidateQueries({ queryKey: applicationKeys.all }),
+  });
 }
 
-export const useTasdiqlash = (id: number) => useArizaMutation(() => api.tasdiqla(id));
+export const useApprove = (id: number) => useApplicationMutation(() => api.approve(id));
 
-export const useQaytarish = (id: number) => useArizaMutation((sabab: string) => api.qaytar(id, sabab));
+export const useReturnToApplicant = (id: number) =>
+  useApplicationMutation((reason: string) => api.returnToApplicant(id, reason));

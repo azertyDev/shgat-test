@@ -1,20 +1,20 @@
-import { TASHQARIDA, validateChegara, geojsonDanChegara, halqalardanChegara } from './boundary';
+import { validateBoundary, boundaryFromRings, OUTSIDE_UZBEKISTAN, boundaryFromGeoJson } from './boundary';
 
-const kvadrat = [[[72.3, 40.75], [72.4, 40.75], [72.4, 40.81], [72.3, 40.81], [72.3, 40.75]]];
+const square = [[[72.3, 40.75], [72.4, 40.75], [72.4, 40.81], [72.3, 40.81], [72.3, 40.75]]];
 
-describe('chegara', () => {
-  it("O'zbekistondan tashqari poligon — ogohlantirish", () => {
-    expect(validateChegara({ type: 'Polygon', coordinates: kvadrat })).toBeNull();
+describe('boundary', () => {
+  it('warns about a polygon outside Uzbekistan', () => {
+    expect(validateBoundary({ type: 'Polygon', coordinates: square })).toBeNull();
     expect(
-      validateChegara({ type: 'Polygon', coordinates: [[[2.29, 48.85], [2.4, 48.85], [2.4, 48.9], [2.29, 48.85]]] })
-    ).toBe(TASHQARIDA);
+      validateBoundary({ type: 'Polygon', coordinates: [[[2.29, 48.85], [2.4, 48.85], [2.4, 48.9], [2.29, 48.85]]] })
+    ).toBe(OUTSIDE_UZBEKISTAN);
   });
 
-  it('Feature va FeatureCollection dan geometriya ajratadi', () => {
-    const polygon = { type: 'Polygon', coordinates: kvadrat };
-    expect(geojsonDanChegara({ type: 'Feature', properties: {}, geometry: polygon })).toEqual(polygon);
+  it('extracts geometry from a Feature and a FeatureCollection', () => {
+    const polygon = { type: 'Polygon', coordinates: square };
+    expect(boundaryFromGeoJson({ type: 'Feature', properties: {}, geometry: polygon })).toEqual(polygon);
     expect(
-      geojsonDanChegara({
+      boundaryFromGeoJson({
         type: 'FeatureCollection',
         features: [
           { type: 'Feature', geometry: polygon },
@@ -22,12 +22,12 @@ describe('chegara', () => {
           { type: 'Feature', geometry: polygon },
         ],
       })
-    ).toEqual({ type: 'MultiPolygon', coordinates: [kvadrat, kvadrat] });
-    expect(geojsonDanChegara({ type: 'Point', coordinates: [1, 2] })).toBeNull();
+    ).toEqual({ type: 'MultiPolygon', coordinates: [square, square] });
+    expect(boundaryFromGeoJson({ type: 'Point', coordinates: [1, 2] })).toBeNull();
   });
 
-  it('ArcGIS halqasini yopadi va yaxlitlaydi', () => {
-    expect(halqalardanChegara([[[72.1234567, 40.1], [72.2, 40.1], [72.2, 40.2]]])).toEqual({
+  it('closes and rounds an ArcGIS ring', () => {
+    expect(boundaryFromRings([[[72.1234567, 40.1], [72.2, 40.1], [72.2, 40.2]]])).toEqual({
       type: 'Polygon',
       coordinates: [[[72.123457, 40.1], [72.2, 40.1], [72.2, 40.2], [72.123457, 40.1]]],
     });
