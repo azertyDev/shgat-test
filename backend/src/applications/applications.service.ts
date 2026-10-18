@@ -1,4 +1,4 @@
-import { HttpStatus, Injectable } from '@nestjs/common';
+import { HttpStatus, Injectable, Logger } from '@nestjs/common';
 import {
   Prisma,
   type Application,
@@ -44,6 +44,7 @@ const STATE_CHANGED = "Ariza holati o'zgargan, sahifani yangilang";
 
 @Injectable()
 export class ApplicationsService {
+  private readonly logger = new Logger(ApplicationsService.name);
   private readonly payloadSchema: ReturnType<
     typeof createApplicationPayloadSchema
   >;
@@ -207,6 +208,8 @@ export class ApplicationsService {
       });
       if (count === 0) throw apiError(HttpStatus.CONFLICT, STATE_CHANGED);
     } catch (e) {
+      // the feature is written but the application did not change: remove it, or a later approval adds a second one
+      await this.discardFeature(objectId);
       // concurrent approvals hit the unique constraint
       if (
         e instanceof Prisma.PrismaClientKnownRequestError &&
@@ -216,6 +219,17 @@ export class ApplicationsService {
       throw e;
     }
     return { id_raqam: registrationNumber, arcgis_object_id: objectId };
+  }
+
+  /** Best effort: a failed cleanup is logged and must not hide the original error. */
+  private async discardFeature(objectId: number) {
+    try {
+      await this.arcgis.deleteFeature(objectId);
+    } catch (e) {
+      this.logger.error(
+        `ArcGIS feature ${objectId} could not be removed: ${(e as Error).message}`,
+      );
+    }
   }
 
   async returnToApplicant(id: number, body: unknown) {

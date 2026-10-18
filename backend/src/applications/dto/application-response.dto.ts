@@ -25,7 +25,13 @@ export interface ApplicationDetailsDto extends ApplicationSummaryDto {
   chegara: unknown;
   arcgis_object_id: number | null;
   qaytarish_sababi: string | null;
-  fayllar: { tur: UploadField; nomi: string; mime: string; hajm: number; url: string }[];
+  fayllar: {
+    tur: UploadField;
+    nomi: string;
+    mime: string;
+    hajm: number;
+    url: string;
+  }[];
 }
 
 export interface ApprovalDto {

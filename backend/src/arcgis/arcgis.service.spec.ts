@@ -124,6 +124,32 @@ describe('ArcgisService.addFeature', () => {
   });
 });
 
+describe('ArcgisService.deleteFeature', () => {
+  const fetchMock = vi.fn<typeof fetch>();
+  beforeEach(() => {
+    fetchMock.mockReset();
+    vi.stubGlobal('fetch', fetchMock);
+  });
+  afterEach(() => vi.unstubAllGlobals());
+
+  it('deletes by objectId via applyEdits', async () => {
+    fetchMock.mockResolvedValueOnce(
+      jsonResponse({ deleteResults: [{ objectId: 42, success: true }] }),
+    );
+    await new ArcgisService().deleteFeature(42);
+    const body = fetchMock.mock.calls[0][1]!.body as URLSearchParams;
+    expect(String(fetchMock.mock.calls[0][0])).toMatch(/\/applyEdits$/);
+    expect(body.get('deletes')).toBe('42');
+  });
+
+  it('throws when ArcGIS reports success=false', async () => {
+    fetchMock.mockResolvedValueOnce(
+      jsonResponse({ deleteResults: [{ success: false }] }),
+    );
+    await expect(new ArcgisService().deleteFeature(42)).rejects.toThrow();
+  });
+});
+
 describe('toSqlTimestamp', () => {
   it('formats UTC with a 5 minute clock-skew allowance', () => {
     expect(toSqlTimestamp(new Date('2026-01-01T00:02:03.456Z'))).toBe(

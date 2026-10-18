@@ -59,6 +59,19 @@ export class ArcgisService {
     return json.objectIds?.[0] ?? null;
   }
 
+  /** Deletes a feature (compensation when the database step after a write fails). */
+  async deleteFeature(objectId: number): Promise<void> {
+    const json = await this.request('applyEdits', {
+      deletes: String(objectId),
+    });
+    const result = json.deleteResults?.[0];
+    if (!result?.success) {
+      throw new Error(
+        result?.error?.description ?? 'applyEdits did not delete the feature',
+      );
+    }
+  }
+
   private async insertFeature(
     description: string,
     geometry: EsriPolygon,

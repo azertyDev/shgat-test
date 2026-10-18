@@ -3,10 +3,17 @@
  * The public API is in Uzbek and must not change; the rest of the code uses the English names
  * and converts at this boundary (see application.mapper.ts and application.schema.ts).
  */
-import type { ApplicationStatus, FileKind } from '../generated/prisma/client.js';
+import type {
+  ApplicationStatus,
+  FileKind,
+} from '../generated/prisma/client.js';
 
 /** Multipart field names of the three required documents. */
-export const UPLOAD_FIELDS = ['asosiy_chizma', 'tushuntirish_xati', 'tasdiqlovchi_hujjat'] as const;
+export const UPLOAD_FIELDS = [
+  'asosiy_chizma',
+  'tushuntirish_xati',
+  'tasdiqlovchi_hujjat',
+] as const;
 export type UploadField = (typeof UPLOAD_FIELDS)[number];
 
 export const FILE_KIND_TO_FIELD: Record<FileKind, UploadField> = {
@@ -30,7 +37,9 @@ export const API_STATUSES = Object.values(STATUS_TO_API);
 
 /** Own-property lookup, so values like "toString" are rejected instead of reaching Prisma. */
 export function statusFromApi(value: string): ApplicationStatus | undefined {
-  const entry = Object.entries(STATUS_TO_API).find(([, wire]) => wire === value);
+  const entry = Object.entries(STATUS_TO_API).find(
+    ([, wire]) => wire === value,
+  );
   return entry?.[0] as ApplicationStatus | undefined;
 }
 

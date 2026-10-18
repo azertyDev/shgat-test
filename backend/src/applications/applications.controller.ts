@@ -13,14 +13,23 @@ import {
   UseInterceptors,
 } from '@nestjs/common';
 import { FileFieldsInterceptor } from '@nestjs/platform-express';
-import { ApiBody, ApiConsumes, ApiHeader, ApiQuery, ApiTags } from '@nestjs/swagger';
+import {
+  ApiBody,
+  ApiConsumes,
+  ApiHeader,
+  ApiQuery,
+  ApiTags,
+} from '@nestjs/swagger';
 import type { Response } from 'express';
 import { createReadStream } from 'node:fs';
 import { ALL_ROLES, Role } from '../common/auth/role.enum.js';
 import { Roles } from '../common/auth/roles.decorator.js';
 import { ParseIdPipe } from '../common/pipes/parse-id.pipe.js';
 import { API_STATUSES } from './api-contract.js';
-import { ApplicationsService, type UploadedFileMap } from './applications.service.js';
+import {
+  ApplicationsService,
+  type UploadedFileMap,
+} from './applications.service.js';
 import { UPLOAD_FIELDS } from './api-contract.js';
 
 // the 20 MB rule is checked in the service (422 with the field name); this is only a memory guard
@@ -38,7 +47,15 @@ const EXAMPLE_PAYLOAD = {
   tasdiq_hujjati: '123-son qaror',
   chegara: {
     type: 'Polygon',
-    coordinates: [[[72.3, 40.75], [72.4, 40.75], [72.4, 40.81], [72.3, 40.81], [72.3, 40.75]]],
+    coordinates: [
+      [
+        [72.3, 40.75],
+        [72.4, 40.75],
+        [72.4, 40.81],
+        [72.3, 40.81],
+        [72.3, 40.75],
+      ],
+    ],
   },
 };
 
@@ -48,7 +65,9 @@ const multipartBody = (filesRequired: boolean) => ({
     required: filesRequired ? ['data', ...UPLOAD_FIELDS] : ['data'],
     properties: {
       data: { type: 'string', example: JSON.stringify(EXAMPLE_PAYLOAD) },
-      ...Object.fromEntries(UPLOAD_FIELDS.map((t) => [t, { type: 'string', format: 'binary' }])),
+      ...Object.fromEntries(
+        UPLOAD_FIELDS.map((t) => [t, { type: 'string', format: 'binary' }]),
+      ),
     },
   },
 });
@@ -64,7 +83,10 @@ export class ApplicationsController {
   @UseInterceptors(uploadInterceptor)
   @ApiConsumes('multipart/form-data')
   @ApiBody(multipartBody(true))
-  create(@Body('data') data: string, @UploadedFiles() files: UploadedFileMap = {}) {
+  create(
+    @Body('data') data: string,
+    @UploadedFiles() files: UploadedFileMap = {},
+  ) {
     return this.applications.create(data, files);
   }
 
@@ -90,7 +112,11 @@ export class ApplicationsController {
   @UseInterceptors(uploadInterceptor)
   @ApiConsumes('multipart/form-data')
   @ApiBody(multipartBody(false))
-  resubmit(@Param('id', ParseIdPipe) id: number, @Body('data') data: string, @UploadedFiles() files: UploadedFileMap = {}) {
+  resubmit(
+    @Param('id', ParseIdPipe) id: number,
+    @Body('data') data: string,
+    @UploadedFiles() files: UploadedFileMap = {},
+  ) {
     return this.applications.resubmit(id, data, files);
   }
 
@@ -104,8 +130,17 @@ export class ApplicationsController {
   @Post(':id/qaytarish')
   @HttpCode(200)
   @Roles([Role.REVIEWER])
-  @ApiBody({ schema: { type: 'object', required: ['sabab'], properties: { sabab: { type: 'string' } } } })
-  returnToApplicant(@Param('id', ParseIdPipe) id: number, @Body() body: unknown) {
+  @ApiBody({
+    schema: {
+      type: 'object',
+      required: ['sabab'],
+      properties: { sabab: { type: 'string' } },
+    },
+  })
+  returnToApplicant(
+    @Param('id', ParseIdPipe) id: number,
+    @Body() body: unknown,
+  ) {
     return this.applications.returnToApplicant(id, body);
   }
 
