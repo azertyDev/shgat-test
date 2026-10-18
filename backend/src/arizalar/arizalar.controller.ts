@@ -1,0 +1,136 @@
+import {
+  Body,
+  Controller,
+  Get,
+  HttpCode,
+  Param,
+  ParseIntPipe,
+  Post,
+  Put,
+  Query,
+  Res,
+  StreamableFile,
+  UploadedFiles,
+  UseInterceptors,
+} from '@nestjs/common';
+import { FileFieldsInterceptor } from '@nestjs/platform-express';
+import { ApiBody, ApiConsumes, ApiHeader, ApiQuery, ApiTags } from '@nestjs/swagger';
+import type { Response } from 'express';
+import { createReadStream } from 'node:fs';
+import { ROLLAR, Rollar } from '../common/rol.guard.js';
+import { SOATO } from '../soato/soato.js';
+import { ArizalarService, type Fayllar } from './arizalar.service.js';
+import { FAYL_TURLARI } from './fayllar.js';
+
+// 20 MB tekshiruvi servisda (422 + maydon nomi); bu — xotirani himoya qiluvchi yuqori chegara
+const fayllarInterceptor = FileFieldsInterceptor(
+  FAYL_TURLARI.map((name) => ({ name, maxCount: 1 })),
+  { limits: { fileSize: 50 * 1024 * 1024, files: FAYL_TURLARI.length } },
+);
+
+const NAMUNA = {
+  hujjat_nomi: 'Andijon shahri bosh rejasi',
+  hujjat_turi: 'БР',
+  soato_kodi: '1703401',
+  tasdiq_sanasi: '2026-03-12',
+  tasdiq_hujjati: '123-son qaror',
+  chegara: {
+    type: 'Polygon',
+    coordinates: [[[72.3, 40.75], [72.4, 40.75], [72.4, 40.81], [72.3, 40.81], [72.3, 40.75]]],
+  },
+};
+
+const multipartBody = (majburiy: boolean) => ({
+  schema: {
+    type: 'object',
+    required: majburiy ? ['data', ...FAYL_TURLARI] : ['data'],
+    properties: {
+      data: { type: 'string', example: JSON.stringify(NAMUNA) },
+      ...Object.fromEntries(FAYL_TURLARI.map((t) => [t, { type: 'string', format: 'binary' }])),
+    },
+  },
+});
+
+@ApiTags('arizalar')
+@ApiHeader({ name: 'X-Rol', enum: ROLLAR, required: true })
+@Controller('arizalar')
+export class ArizalarController {
+  constructor(private readonly arizalar: ArizalarService) {}
+
+  @Post()
+  @Rollar(['ariza_beruvchi'])
+  @UseInterceptors(fayllarInterceptor)
+  @ApiConsumes('multipart/form-data')
+  @ApiBody(multipartBody(true))
+  yarat(@Body('data') data: string, @UploadedFiles() fayllar: Fayllar = {}) {
+    return this.arizalar.yarat(data, fayllar);
+  }
+
+  @Get()
+  @Rollar(ROLLAR)
+  @ApiQuery({ name: 'holat', required: false, enum: ['yuborilgan', 'hisobga_olingan', 'qaytarilgan'] })
+  @ApiQuery({ name: 'hujjat_turi', required: false })
+  @ApiQuery({ name: 'soato_kodi', required: false })
+  @ApiQuery({ name: 'sahifa', required: false, type: Number })
+  @ApiQuery({ name: 'hajm', required: false, type: Number })
+  royxat(@Query() q: Record<string, string | undefined>) {
+    return this.arizalar.royxat(q);
+  }
+
+  @Get(':id')
+  @Rollar(ROLLAR)
+  bitta(@Param('id', ParseIntPipe) id: number) {
+    return this.arizalar.bitta(id);
+  }
+
+  @Put(':id')
+  @Rollar(['ariza_beruvchi'])
+  @UseInterceptors(fayllarInterceptor)
+  @ApiConsumes('multipart/form-data')
+  @ApiBody(multipartBody(false))
+  tuzat(@Param('id', ParseIntPipe) id: number, @Body('data') data: string, @UploadedFiles() fayllar: Fayllar = {}) {
+    return this.arizalar.tuzat(id, data, fayllar);
+  }
+
+  @Post(':id/tasdiqlash')
+  @HttpCode(200)
+  @Rollar(['tekshiruvchi'])
+  tasdiqla(@Param('id', ParseIntPipe) id: number) {
+    return this.arizalar.tasdiqla(id);
+  }
+
+  @Post(':id/qaytarish')
+  @HttpCode(200)
+  @Rollar(['tekshiruvchi'])
+  @ApiBody({ schema: { type: 'object', required: ['sabab'], properties: { sabab: { type: 'string' } } } })
+  qaytar(@Param('id', ParseIntPipe) id: number, @Body() body: unknown) {
+    return this.arizalar.qaytar(id, body);
+  }
+
+  /** Brauzer havolasi orqali ochiladi, shuning uchun X-Rol talab qilinmaydi. */
+  @Get(':id/fayllar/:tur')
+  async fayl(
+    @Param('id', ParseIntPipe) id: number,
+    @Param('tur') tur: string,
+    @Res({ passthrough: true }) res: Response,
+  ) {
+    const f = await this.arizalar.fayl(id, tur);
+    res.set({
+      'Content-Type': f.mime,
+      'Content-Disposition': `inline; filename*=UTF-8''${encodeURIComponent(f.nomi)}`,
+      'X-Content-Type-Options': 'nosniff',
+    });
+    return new StreamableFile(createReadStream(f.toliqYol));
+  }
+}
+
+@ApiTags('soato')
+@ApiHeader({ name: 'X-Rol', enum: ROLLAR, required: true })
+@Controller('soato')
+export class SoatoController {
+  @Get()
+  @Rollar(ROLLAR)
+  royxat() {
+    return SOATO;
+  }
+}
