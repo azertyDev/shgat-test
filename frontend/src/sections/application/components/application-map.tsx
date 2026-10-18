@@ -19,11 +19,10 @@ import { CONFIG } from 'src/global-config';
 import { useTranslate } from 'src/locales';
 
 import { boundaryRings } from '../boundary';
+import { showLayer, type MapState } from './show-layer';
 import { INITIAL_VIEW, BOUNDARY_SYMBOL } from './map-config';
 
 // ----------------------------------------------------------------------
-
-type MapState = 'loading' | 'ready' | 'notFound' | 'error';
 
 /**
  * Registered document: the boundary comes straight from the public ArcGIS layer (filtered by objectid).
@@ -58,33 +57,16 @@ export function ApplicationMap({ application }: { application: Pick<Application,
   // when the status changes (e.g. after approval) the layer is swapped; the view is not recreated
   useEffect(() => {
     if (!view) return undefined;
+    // a result for a layer that was swapped out meanwhile must not overwrite the current state
+    let active = true;
     setMapState('loading');
     view.map?.add(layer);
-    showLayer(view);
+    showLayer(layer, view).then((state) => active && setMapState(state));
     return () => {
+      active = false;
       view.map?.remove(layer);
     };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [view, layer]);
-
-  const showLayer = async (v: MapView) => {
-    try {
-      if (layer instanceof FeatureLayer) {
-        const { count, extent } = await layer.queryExtent();
-        if (!count || !extent) {
-          setMapState('notFound');
-          return;
-        }
-        await v.goTo(extent.clone().expand(1.5));
-      } else {
-        const ext = layer.graphics.getItemAt(0)?.geometry?.extent;
-        if (ext) await v.goTo(ext.clone().expand(1.5));
-      }
-      setMapState('ready');
-    } catch {
-      setMapState('error');
-    }
-  };
 
   return (
     <Stack spacing={1}>
