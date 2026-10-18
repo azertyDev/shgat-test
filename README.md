@@ -1,5 +1,7 @@
 # ShGAT — shaharsozlik hujjatlarini ro'yxatga olish
 
+[![CI](https://github.com/azertyDev/shgat-test/actions/workflows/ci.yml/badge.svg)](https://github.com/azertyDev/shgat-test/actions/workflows/ci.yml)
+
 Test topshirig'i (full-stack): ariza beruvchi hujjat chegarasini xaritada chizib yoki GeoJSON yuklab ariza yuboradi,
 tekshiruvchi uni tasdiqlaydi yoki qaytaradi. Tasdiqlashda server ID raqam yaratadi va chegarani Esri'ning ochiq
 test qatlamiga (`Wildfire/FeatureServer/2`) yozadi. Hisobga olingan hujjat chegarasi xaritada to'g'ridan-to'g'ri shu qatlamdan ko'rsatiladi.
