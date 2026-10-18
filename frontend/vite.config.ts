@@ -10,7 +10,7 @@ import { tanstackRouter } from '@tanstack/router-plugin/vite';
 const PORT = 8080;
 const isTest = process.env.VITEST === 'true';
 
-export default defineConfig({
+export default defineConfig(({ command }) => ({
   plugins: [
     tanstackRouter({
       target: 'react',
@@ -19,7 +19,9 @@ export default defineConfig({
       generatedRouteTree: './src/route-tree.gen.ts',
     }),
     react(),
-    !isTest &&
+    // type/lint overlay for development only: `npm run build` already runs tsc first
+    command === 'serve' &&
+      !isTest &&
       checker({
         typescript: true,
         eslint: {
@@ -46,4 +48,4 @@ export default defineConfig({
     setupFiles: ['./src/test-setup.ts'],
     include: ['src/**/*.test.{ts,tsx}'],
   },
-});
+}));
