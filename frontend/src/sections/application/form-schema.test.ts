@@ -1,4 +1,4 @@
-import { applicationFormSchema, futureRegistrationNumber } from './form-schema';
+import { today, applicationFormSchema, futureRegistrationNumber } from './form-schema';
 
 const pdf = (size = 10, name = 'a.pdf') => {
   const f = new File(['%PDF-1.4'], name, { type: 'application/pdf' });
@@ -50,5 +50,25 @@ describe('futureRegistrationNumber', () => {
   it('is built from type, SOATO code and the approval year', () => {
     expect(futureRegistrationNumber(values)).toBe('БР-1703401-2026');
     expect(futureRegistrationNumber({ ...values, soatoCode: '' })).toBe('');
+  });
+});
+
+describe('today', () => {
+  it('uses the Tashkent calendar day, not the browser zone', () => {
+    // 20:00 UTC on Oct 18 is already Oct 19 in Tashkent (UTC+5)
+    expect(today(new Date('2026-10-18T20:00:00Z'))).toBe('2026-10-19');
+    expect(today(new Date('2026-10-18T18:59:00Z'))).toBe('2026-10-18');
+  });
+
+  it('rejects a date that is still in the future for Tashkent', () => {
+    vi.useFakeTimers();
+    vi.setSystemTime(new Date('2026-10-18T10:00:00Z'));
+    try {
+      const result = applicationFormSchema(false).shape.approvalDate.safeParse('2026-10-19');
+      expect(result.success).toBe(false);
+      expect(applicationFormSchema(false).shape.approvalDate.safeParse('2026-10-18').success).toBe(true);
+    } finally {
+      vi.useRealTimers();
+    }
   });
 });

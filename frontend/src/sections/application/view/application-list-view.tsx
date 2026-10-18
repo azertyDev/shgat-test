@@ -31,6 +31,7 @@ import { Iconify } from 'src/components/iconify';
 import { TableNoData } from 'src/components/table';
 import { Scrollbar } from 'src/components/scrollbar';
 
+import { today } from '../form-schema';
 import { useRole } from '../role-store';
 import { applicationListQuery } from '../queries';
 import { DEFAULT_PAGE_SIZE } from '../list-search';
@@ -53,7 +54,7 @@ export function ApplicationListView({ search }: { search: ListSearch }) {
   const setFilter = (patch: Partial<ListSearch>) =>
     navigate({ search: (prev) => ({ ...prev, ...patch, page: patch.page }) });
 
-  const today = dayjs().format('YYYY-MM-DD');
+  const todayInTashkent = today();
   const isReviewer = role === 'REVIEWER';
 
   return (
@@ -148,7 +149,7 @@ export function ApplicationListView({ search }: { search: ListSearch }) {
                       {isReviewer && a.reviewDeadline ? (
                         <Stack direction="row" spacing={1} sx={{ alignItems: 'center' }}>
                           <span>{dayjs(a.reviewDeadline).format('DD.MM.YYYY')}</span>
-                          {a.reviewDeadline < today && (
+                          {a.reviewDeadline < todayInTashkent && (
                             <Label color="error" variant="soft">
                               {t('list.overdue')}
                             </Label>

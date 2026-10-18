@@ -1,7 +1,6 @@
 import type { Boundary, FileField } from './types';
 
 import { z } from 'zod';
-import dayjs from 'dayjs';
 
 import { validateBoundary } from './boundary';
 import { FILE_FIELDS, DOCUMENT_TYPES } from './types';
@@ -11,7 +10,9 @@ import { FILE_FIELDS, DOCUMENT_TYPES } from './types';
 export const MAX_FILE_SIZE = 20 * 1024 * 1024;
 const ALLOWED_MIME_TYPES = ['application/pdf', 'image/jpeg', 'image/png'];
 
-export const today = () => dayjs().format('YYYY-MM-DD');
+/** Today in Tashkent (YYYY-MM-DD), the same calendar the backend validates against, whatever the browser zone. */
+export const today = (now: Date = new Date()) =>
+  new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Tashkent' }).format(now);
 
 const fileSchema = (required: boolean) =>
   z.custom<File | null>().superRefine((f, ctx) => {
