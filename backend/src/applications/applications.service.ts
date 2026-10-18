@@ -2,7 +2,7 @@ import { HttpStatus, Injectable } from '@nestjs/common';
 import { mkdir, rm, writeFile } from 'node:fs/promises';
 import { dirname, join, resolve } from 'node:path';
 import { Prisma, type Application, type ApplicationStatus } from '../generated/prisma/client.js';
-import { apiError, FieldValidationError } from '../common/api-error.js';
+import { apiError, FieldValidationError } from '../common/errors/api-error.js';
 import { PrismaService } from '../prisma/prisma.service.js';
 import {
   API_STATUSES,

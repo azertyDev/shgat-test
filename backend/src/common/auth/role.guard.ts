@@ -1,18 +1,9 @@
 import { CanActivate, ExecutionContext, HttpStatus, Injectable } from '@nestjs/common';
 import { Reflector } from '@nestjs/core';
 import type { Request } from 'express';
-import { apiError } from './api-error.js';
-
-/** Values are the X-Rol header values fixed by the task spec. */
-export enum Role {
-  APPLICANT = 'ariza_beruvchi',
-  REVIEWER = 'tekshiruvchi',
-}
-
-export const ALL_ROLES: readonly Role[] = Object.values(Role);
-
-/** Roles allowed for an endpoint. Routes without it are public (e.g. the file download link). */
-export const Roles = Reflector.createDecorator<readonly Role[]>();
+import { apiError } from '../errors/api-error.js';
+import type { Role } from './role.enum.js';
+import { Roles } from './roles.decorator.js';
 
 /** Simplified role check by the X-Rol header (task spec, section 5). */
 @Injectable()
