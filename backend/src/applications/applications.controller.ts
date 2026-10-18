@@ -19,16 +19,18 @@ import type { Response } from 'express';
 import { createReadStream } from 'node:fs';
 import { ALL_ROLES, Role, Roles } from '../common/role.guard.js';
 import { SOATO_REGIONS } from '../soato/soato.js';
-import { ArizalarService, type Fayllar } from './applications.service.js';
+import { API_STATUSES } from './api-contract.js';
+import { ApplicationsService, type UploadedFileMap } from './applications.service.js';
 import { UPLOAD_FIELDS } from './api-contract.js';
 
-// 20 MB tekshiruvi servisda (422 + maydon nomi); bu — xotirani himoya qiluvchi yuqori chegara
-const fayllarInterceptor = FileFieldsInterceptor(
+// the 20 MB rule is checked in the service (422 with the field name); this is only a memory guard
+const uploadInterceptor = FileFieldsInterceptor(
   UPLOAD_FIELDS.map((name) => ({ name, maxCount: 1 })),
   { limits: { fileSize: 50 * 1024 * 1024, files: UPLOAD_FIELDS.length } },
 );
 
-const NAMUNA = {
+// example payload of the task spec (wire names)
+const EXAMPLE_PAYLOAD = {
   hujjat_nomi: 'Andijon shahri bosh rejasi',
   hujjat_turi: 'БР',
   soato_kodi: '1703401',
@@ -40,12 +42,12 @@ const NAMUNA = {
   },
 };
 
-const multipartBody = (majburiy: boolean) => ({
+const multipartBody = (filesRequired: boolean) => ({
   schema: {
     type: 'object',
-    required: majburiy ? ['data', ...UPLOAD_FIELDS] : ['data'],
+    required: filesRequired ? ['data', ...UPLOAD_FIELDS] : ['data'],
     properties: {
-      data: { type: 'string', example: JSON.stringify(NAMUNA) },
+      data: { type: 'string', example: JSON.stringify(EXAMPLE_PAYLOAD) },
       ...Object.fromEntries(UPLOAD_FIELDS.map((t) => [t, { type: 'string', format: 'binary' }])),
     },
   },
@@ -54,73 +56,73 @@ const multipartBody = (majburiy: boolean) => ({
 @ApiTags('arizalar')
 @ApiHeader({ name: 'X-Rol', enum: Role, required: true })
 @Controller('arizalar')
-export class ArizalarController {
-  constructor(private readonly arizalar: ArizalarService) {}
+export class ApplicationsController {
+  constructor(private readonly applications: ApplicationsService) {}
 
   @Post()
   @Roles([Role.APPLICANT])
-  @UseInterceptors(fayllarInterceptor)
+  @UseInterceptors(uploadInterceptor)
   @ApiConsumes('multipart/form-data')
   @ApiBody(multipartBody(true))
-  yarat(@Body('data') data: string, @UploadedFiles() fayllar: Fayllar = {}) {
-    return this.arizalar.yarat(data, fayllar);
+  create(@Body('data') data: string, @UploadedFiles() files: UploadedFileMap = {}) {
+    return this.applications.create(data, files);
   }
 
   @Get()
   @Roles(ALL_ROLES)
-  @ApiQuery({ name: 'holat', required: false, enum: ['yuborilgan', 'hisobga_olingan', 'qaytarilgan'] })
+  @ApiQuery({ name: 'holat', required: false, enum: API_STATUSES })
   @ApiQuery({ name: 'hujjat_turi', required: false })
   @ApiQuery({ name: 'soato_kodi', required: false })
   @ApiQuery({ name: 'sahifa', required: false, type: Number })
   @ApiQuery({ name: 'hajm', required: false, type: Number })
-  royxat(@Query() q: Record<string, string | undefined>) {
-    return this.arizalar.royxat(q);
+  list(@Query() query: Record<string, string | undefined>) {
+    return this.applications.list(query);
   }
 
   @Get(':id')
   @Roles(ALL_ROLES)
-  bitta(@Param('id', ParseIntPipe) id: number) {
-    return this.arizalar.bitta(id);
+  findOne(@Param('id', ParseIntPipe) id: number) {
+    return this.applications.findOne(id);
   }
 
   @Put(':id')
   @Roles([Role.APPLICANT])
-  @UseInterceptors(fayllarInterceptor)
+  @UseInterceptors(uploadInterceptor)
   @ApiConsumes('multipart/form-data')
   @ApiBody(multipartBody(false))
-  tuzat(@Param('id', ParseIntPipe) id: number, @Body('data') data: string, @UploadedFiles() fayllar: Fayllar = {}) {
-    return this.arizalar.tuzat(id, data, fayllar);
+  resubmit(@Param('id', ParseIntPipe) id: number, @Body('data') data: string, @UploadedFiles() files: UploadedFileMap = {}) {
+    return this.applications.resubmit(id, data, files);
   }
 
   @Post(':id/tasdiqlash')
   @HttpCode(200)
   @Roles([Role.REVIEWER])
-  tasdiqla(@Param('id', ParseIntPipe) id: number) {
-    return this.arizalar.tasdiqla(id);
+  approve(@Param('id', ParseIntPipe) id: number) {
+    return this.applications.approve(id);
   }
 
   @Post(':id/qaytarish')
   @HttpCode(200)
   @Roles([Role.REVIEWER])
   @ApiBody({ schema: { type: 'object', required: ['sabab'], properties: { sabab: { type: 'string' } } } })
-  qaytar(@Param('id', ParseIntPipe) id: number, @Body() body: unknown) {
-    return this.arizalar.qaytar(id, body);
+  returnToApplicant(@Param('id', ParseIntPipe) id: number, @Body() body: unknown) {
+    return this.applications.returnToApplicant(id, body);
   }
 
-  /** Brauzer havolasi orqali ochiladi, shuning uchun X-Rol talab qilinmaydi. */
+  /** Opened as a plain browser link, so no X-Rol header is required. */
   @Get(':id/fayllar/:tur')
-  async fayl(
+  async download(
     @Param('id', ParseIntPipe) id: number,
-    @Param('tur') tur: string,
+    @Param('tur') field: string,
     @Res({ passthrough: true }) res: Response,
   ) {
-    const f = await this.arizalar.fayl(id, tur);
+    const file = await this.applications.getFile(id, field);
     res.set({
-      'Content-Type': f.mime,
-      'Content-Disposition': `inline; filename*=UTF-8''${encodeURIComponent(f.nomi)}`,
+      'Content-Type': file.mimeType,
+      'Content-Disposition': `inline; filename*=UTF-8''${encodeURIComponent(file.originalName)}`,
       'X-Content-Type-Options': 'nosniff',
     });
-    return new StreamableFile(createReadStream(f.toliqYol));
+    return new StreamableFile(createReadStream(file.absolutePath));
   }
 }
 
@@ -130,7 +132,7 @@ export class ArizalarController {
 export class SoatoController {
   @Get()
   @Roles(ALL_ROLES)
-  royxat() {
+  list() {
     return SOATO_REGIONS;
   }
 }

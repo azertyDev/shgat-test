@@ -9,51 +9,57 @@ generator client {
   importFileExtension = "js"
 }
 
-enum Holat {
-  yuborilgan
-  hisobga_olingan
-  qaytarilgan
+enum ApplicationStatus {
+  SUBMITTED
+  REGISTERED
+  RETURNED
+
+  @@map("application_status")
 }
 
-enum FaylTuri {
-  asosiy_chizma
-  tushuntirish_xati
-  tasdiqlovchi_hujjat
+enum FileKind {
+  MAIN_DRAWING
+  EXPLANATORY_NOTE
+  APPROVAL_DOCUMENT
+
+  @@map("file_kind")
 }
 
-model Ariza {
-  id               Int      @id @default(autoincrement())
-  hujjat_nomi      String   @db.VarChar(255)
-  hujjat_turi      String   @db.VarChar(8)
-  soato_kodi       String   @db.Char(7)
-  tasdiq_sanasi    DateTime @db.Date
-  tasdiq_hujjati   String   @db.VarChar(100)
-  chegara          Json
-  holat            Holat    @default(yuborilgan)
-  id_raqam         String?  @unique @db.VarChar(32)
-  arcgis_object_id Int?
-  /// birinchi ArcGIS yozish urinishi vaqti — qayta urinishda dublikat yaratmaslik uchun
-  arcgis_urinish_vaqti DateTime?
-  qaytarish_sababi String?
-  yuborilgan_vaqt  DateTime @default(now())
-  created_at       DateTime @default(now())
-  updated_at       DateTime @updatedAt
-  fayllar          Fayl[]
+model Application {
+  id                 Int               @id @default(autoincrement())
+  documentName       String            @map("document_name") @db.VarChar(255)
+  documentType       String            @map("document_type") @db.VarChar(8)
+  soatoCode          String            @map("soato_code") @db.Char(7)
+  approvalDate       DateTime          @map("approval_date") @db.Date
+  approvalDecree     String            @map("approval_decree") @db.VarChar(100)
+  boundary           Json
+  status             ApplicationStatus @default(SUBMITTED)
+  registrationNumber String?           @unique @map("registration_number") @db.VarChar(32)
+  arcgisObjectId     Int?              @map("arcgis_object_id")
+  /// first ArcGIS write attempt; lets a retry find a feature whose response was lost
+  arcgisAttemptAt    DateTime?         @map("arcgis_attempt_at")
+  returnReason       String?           @map("return_reason")
+  submittedAt        DateTime          @default(now()) @map("submitted_at")
+  createdAt          DateTime          @default(now()) @map("created_at")
+  updatedAt          DateTime          @updatedAt @map("updated_at")
+  files              ApplicationFile[]
 
-  @@index([holat])
-  @@index([hujjat_turi])
-  @@index([soato_kodi])
+  @@index([status])
+  @@index([documentType])
+  @@index([soatoCode])
+  @@map("applications")
 }
 
-model Fayl {
-  id       Int      @id @default(autoincrement())
-  ariza_id Int
-  ariza    Ariza    @relation(fields: [ariza_id], references: [id], onDelete: Cascade)
-  tur      FaylTuri
-  nomi     String
-  mime     String
-  hajm     Int
-  yol      String
+model ApplicationFile {
+  id            Int         @id @default(autoincrement())
+  applicationId Int         @map("application_id")
+  application   Application @relation(fields: [applicationId], references: [id], onDelete: Cascade)
+  kind          FileKind
+  originalName  String      @map("original_name")
+  mimeType      String      @map("mime_type")
+  size          Int
+  storagePath   String      @map("storage_path")
 
-  @@unique([ariza_id, tur])
+  @@unique([applicationId, kind])
+  @@map("application_files")
 }

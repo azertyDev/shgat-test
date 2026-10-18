@@ -3,26 +3,39 @@ import { isKnownSoatoCode } from '../soato/soato.js';
 import { Boundary, validateBoundary } from './boundary.js';
 import { tashkentDate } from './business-days.js';
 
-export const HUJJAT_TURLARI = ['БСХ', 'ҲРС', 'ТРЛ', 'БР', 'БРЛ', 'ҚР', 'ЛШ'] as const;
+export const DOCUMENT_TYPES = ['БСХ', 'ҲРС', 'ТРЛ', 'БР', 'БРЛ', 'ҚР', 'ЛШ'] as const;
 
-const majburiy = { error: 'Majburiy maydon' };
+const required = { error: 'Majburiy maydon' };
 
-/** 4.1-bo'lim qoidalari. id_raqam, holat kabi server maydonlari z.object tomonidan tashlab yuboriladi. */
-export const arizaSchema = z.object({
-  hujjat_nomi: z.string(majburiy).trim().min(1, "Bo'sh bo'lmasin").max(255, '255 belgidan oshmasin'),
-  hujjat_turi: z.enum(HUJJAT_TURLARI, { error: `Turlardan biri: ${HUJJAT_TURLARI.join(', ')}` }),
-  soato_kodi: z
-    .string(majburiy)
-    .regex(/^\d{7}$/, "7 ta raqam bo'lishi kerak")
-    .refine(isKnownSoatoCode, "SOATO ro'yxatida yo'q"),
-  tasdiq_sanasi: z.iso
-    .date({ error: "Sana YYYY-MM-DD formatida bo'lishi kerak" })
-    .refine((s) => s <= tashkentDate(), "Kelajakdagi sana bo'lmasin"),
-  tasdiq_hujjati: z.string(majburiy).trim().min(1, "Bo'sh bo'lmasin").max(100, '100 belgidan oshmasin'),
-  chegara: z.custom<Boundary>().superRefine((g, ctx) => {
-    const x = validateBoundary(g);
-    if (x) ctx.addIssue({ code: 'custom', message: x });
-  }),
-});
+/**
+ * Rules of the task spec (section 4.1) for the multipart `data` field. Keys are the wire names, so
+ * validation errors come back with the field names the client sent; the output is the internal shape.
+ * Server-owned fields (id_raqam, holat, ...) are not part of the object and are dropped.
+ */
+export const applicationPayloadSchema = z
+  .object({
+    hujjat_nomi: z.string(required).trim().min(1, "Bo'sh bo'lmasin").max(255, '255 belgidan oshmasin'),
+    hujjat_turi: z.enum(DOCUMENT_TYPES, { error: `Turlardan biri: ${DOCUMENT_TYPES.join(', ')}` }),
+    soato_kodi: z
+      .string(required)
+      .regex(/^\d{7}$/, "7 ta raqam bo'lishi kerak")
+      .refine(isKnownSoatoCode, "SOATO ro'yxatida yo'q"),
+    tasdiq_sanasi: z.iso
+      .date({ error: "Sana YYYY-MM-DD formatida bo'lishi kerak" })
+      .refine((s) => s <= tashkentDate(), "Kelajakdagi sana bo'lmasin"),
+    tasdiq_hujjati: z.string(required).trim().min(1, "Bo'sh bo'lmasin").max(100, '100 belgidan oshmasin'),
+    chegara: z.custom<Boundary>().superRefine((g, ctx) => {
+      const error = validateBoundary(g);
+      if (error) ctx.addIssue({ code: 'custom', message: error });
+    }),
+  })
+  .transform((d) => ({
+    documentName: d.hujjat_nomi,
+    documentType: d.hujjat_turi,
+    soatoCode: d.soato_kodi,
+    approvalDate: d.tasdiq_sanasi,
+    approvalDecree: d.tasdiq_hujjati,
+    boundary: d.chegara,
+  }));
 
-export type ArizaData = z.infer<typeof arizaSchema>;
+export type ApplicationInput = z.output<typeof applicationPayloadSchema>;

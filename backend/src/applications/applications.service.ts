@@ -1,26 +1,34 @@
 import { HttpStatus, Injectable } from '@nestjs/common';
 import { mkdir, rm, writeFile } from 'node:fs/promises';
 import { dirname, join, resolve } from 'node:path';
-import { Holat, Prisma, type Ariza, type Fayl } from '../generated/prisma/client.js';
+import { Prisma, type Application, type ApplicationStatus } from '../generated/prisma/client.js';
 import { apiError, FieldValidationError } from '../common/api-error.js';
 import { PrismaService } from '../prisma.service.js';
-import { regionName } from '../soato/soato.js';
-import { ArcgisService, ArcgisError } from './arcgis.service.js';
-import { arizaSchema, HUJJAT_TURLARI, type ArizaData } from './application.schema.js';
+import {
+  API_STATUSES,
+  FIELD_TO_FILE_KIND,
+  isUploadField,
+  STATUS_TO_API,
+  statusFromApi,
+  UPLOAD_FIELDS,
+  type ApprovalDto,
+  type UploadField,
+} from './api-contract.js';
+import { toDetailsDto, toStatusDto, toSummaryDto } from './application.mapper.js';
+import { applicationPayloadSchema, DOCUMENT_TYPES, type ApplicationInput } from './application.schema.js';
+import { ArcgisError, ArcgisService } from './arcgis.service.js';
 import { toEsriPolygon } from './boundary.js';
-import { UPLOAD_FIELDS, type UploadField } from './api-contract.js';
-import { checkUploadedFile, detectFileType } from './upload-files.js';
 import { buildRegistrationNumber } from './registration-number.js';
-import { addBusinessDays, tashkentDate } from './business-days.js';
+import { checkUploadedFile, detectFileType } from './upload-files.js';
 
-export type Fayllar = Partial<Record<UploadField, Express.Multer.File[]>>;
+export type UploadedFileMap = Partial<Record<UploadField, Express.Multer.File[]>>;
 type Tx = Prisma.TransactionClient;
 
-const TEKSHIRISH_MUDDATI = 3; // ish kuni
-const DESCRIPTION_MAX = 75; // ArcGIS qatlamidagi description maydoni uzunligi
+const DESCRIPTION_MAX_LENGTH = 75; // length of the description field in the ArcGIS layer
+const STATE_CHANGED = "Ariza holati o'zgargan, sahifani yangilang";
 
 @Injectable()
-export class ArizalarService {
+export class ApplicationsService {
   private readonly uploadDir = resolve(process.env.UPLOAD_DIR ?? 'uploads');
 
   constructor(
@@ -28,201 +36,188 @@ export class ArizalarService {
     private readonly arcgis: ArcgisService,
   ) {}
 
-  async yarat(dataMatn: unknown, fayllar: Fayllar) {
-    const d = this.tekshir(dataMatn, fayllar, true);
-    const a = await this.prisma.$transaction(async (tx) => {
-      const ariza = await tx.ariza.create({ data: ustunlar(d) });
-      await this.saqlaFayllar(tx, ariza.id, fayllar);
-      return ariza;
+  async create(rawData: unknown, files: UploadedFileMap) {
+    const input = this.validate(rawData, files, true);
+    const application = await this.prisma.$transaction(async (tx) => {
+      const created = await tx.application.create({ data: toColumns(input) });
+      await this.storeFiles(tx, created.id, files);
+      return created;
     });
-    return { id: a.id, holat: a.holat };
+    return toStatusDto(application.id, application.status);
   }
 
-  async royxat(q: Record<string, string | undefined>) {
-    const maydonlar: Record<string, string> = {};
-    if (q.holat && !(q.holat in Holat)) maydonlar.holat = `Holatlardan biri: ${Object.keys(Holat).join(', ')}`;
-    if (q.hujjat_turi && !(HUJJAT_TURLARI as readonly string[]).includes(q.hujjat_turi))
-      maydonlar.hujjat_turi = `Turlardan biri: ${HUJJAT_TURLARI.join(', ')}`;
-    if (Object.keys(maydonlar).length) throw new FieldValidationError(maydonlar);
+  async list(query: Record<string, string | undefined>) {
+    const errors: Record<string, string> = {};
+    const status = query.holat ? statusFromApi(query.holat) : undefined;
+    if (query.holat && !status) errors.holat = `Holatlardan biri: ${API_STATUSES.join(', ')}`;
+    if (query.hujjat_turi && !(DOCUMENT_TYPES as readonly string[]).includes(query.hujjat_turi))
+      errors.hujjat_turi = `Turlardan biri: ${DOCUMENT_TYPES.join(', ')}`;
+    if (Object.keys(errors).length) throw new FieldValidationError(errors);
 
-    const sahifa = Math.max(1, Number.parseInt(q.sahifa ?? '', 10) || 1);
-    const hajm = Math.min(100, Math.max(1, Number.parseInt(q.hajm ?? '', 10) || 20));
-    const where: Prisma.ArizaWhereInput = {
-      holat: q.holat as Holat | undefined,
-      hujjat_turi: q.hujjat_turi || undefined,
-      soato_kodi: q.soato_kodi || undefined,
+    const page = Math.max(1, Number.parseInt(query.sahifa ?? '', 10) || 1);
+    const pageSize = Math.min(100, Math.max(1, Number.parseInt(query.hajm ?? '', 10) || 20));
+    const where: Prisma.ApplicationWhereInput = {
+      status,
+      documentType: query.hujjat_turi || undefined,
+      soatoCode: query.soato_kodi || undefined,
     };
-    const [items, jami] = await this.prisma.$transaction([
-      this.prisma.ariza.findMany({ where, orderBy: { id: 'desc' }, skip: (sahifa - 1) * hajm, take: hajm }),
-      this.prisma.ariza.count({ where }),
+    const [items, total] = await this.prisma.$transaction([
+      this.prisma.application.findMany({ where, orderBy: { id: 'desc' }, skip: (page - 1) * pageSize, take: pageSize }),
+      this.prisma.application.count({ where }),
     ]);
-    return { items: items.map(qisqa), jami };
+    return { items: items.map(toSummaryDto), jami: total };
   }
 
-  async bitta(id: number) {
-    const a = await this.prisma.ariza.findUnique({ where: { id }, include: { fayllar: true } });
-    if (!a) throw apiError(HttpStatus.NOT_FOUND, 'Ariza topilmadi');
-    return {
-      ...qisqa(a),
-      tasdiq_sanasi: a.tasdiq_sanasi.toISOString().slice(0, 10),
-      tasdiq_hujjati: a.tasdiq_hujjati,
-      chegara: a.chegara,
-      arcgis_object_id: a.arcgis_object_id,
-      qaytarish_sababi: a.qaytarish_sababi,
-      fayllar: a.fayllar.map((f) => ({
-        tur: f.tur,
-        nomi: f.nomi,
-        mime: f.mime,
-        hajm: f.hajm,
-        url: `/api/arizalar/${a.id}/fayllar/${f.tur}`,
-      })),
-    };
+  async findOne(id: number) {
+    const application = await this.prisma.application.findUnique({ where: { id }, include: { files: true } });
+    if (!application) throw apiError(HttpStatus.NOT_FOUND, 'Ariza topilmadi');
+    return toDetailsDto(application);
   }
 
-  /** Qaytarilgan arizani tuzatib qayta yuborish. Yuborilmagan fayllar saqlanib qoladi. */
-  async tuzat(id: number, dataMatn: unknown, fayllar: Fayllar) {
-    await this.holatiShu(id, 'qaytarilgan', 'Faqat qaytarilgan arizani tuzatib qayta yuborish mumkin');
-    const d = this.tekshir(dataMatn, fayllar, false);
+  /** Resubmits a returned application. Files that are not sent again are kept. */
+  async resubmit(id: number, rawData: unknown, files: UploadedFileMap) {
+    await this.requireStatus(id, 'RETURNED', 'Faqat qaytarilgan arizani tuzatib qayta yuborish mumkin');
+    const input = this.validate(rawData, files, false);
     await this.prisma.$transaction(async (tx) => {
-      const r = await tx.ariza.updateMany({
-        where: { id, holat: 'qaytarilgan' },
-        data: { ...ustunlar(d), holat: 'yuborilgan', yuborilgan_vaqt: new Date(), qaytarish_sababi: null, arcgis_urinish_vaqti: null },
+      const { count } = await tx.application.updateMany({
+        where: { id, status: 'RETURNED' },
+        data: { ...toColumns(input), status: 'SUBMITTED', submittedAt: new Date(), returnReason: null, arcgisAttemptAt: null },
       });
-      if (r.count === 0) throw apiError(HttpStatus.CONFLICT, "Ariza holati o'zgargan, sahifani yangilang");
-      await this.saqlaFayllar(tx, id, fayllar);
+      if (count === 0) throw apiError(HttpStatus.CONFLICT, STATE_CHANGED);
+      await this.storeFiles(tx, id, files);
     });
-    return { id, holat: 'yuborilgan' as const };
+    return toStatusDto(id, 'SUBMITTED');
   }
 
   /**
-   * ID yaratadi, chegarani ArcGIS'ga yozadi va faqat shundan keyin holatni o'zgartiradi.
-   * ArcGIS xato bersa — holat va ID o'zgarmaydi (502), tekshiruvchi qayta urinadi.
+   * Builds the registration number, writes the boundary to ArcGIS and only then changes the status.
+   * If ArcGIS fails, the status and the number stay unchanged (502) and the reviewer can retry.
    */
-  async tasdiqla(id: number) {
-    const a = await this.holatiShu(id, 'yuborilgan', 'Faqat yuborilgan arizani tasdiqlash mumkin');
-    const idRaqam = buildRegistrationNumber(a.hujjat_turi, a.soato_kodi, a.tasdiq_sanasi);
+  async approve(id: number): Promise<ApprovalDto> {
+    const application = await this.requireStatus(id, 'SUBMITTED', 'Faqat yuborilgan arizani tasdiqlash mumkin');
+    const registrationNumber = buildRegistrationNumber(
+      application.documentType,
+      application.soatoCode,
+      application.approvalDate,
+    );
 
-    const band = await this.prisma.ariza.findUnique({ where: { id_raqam: idRaqam } });
-    if (band) throw idTakrori(idRaqam, band.id);
+    const holder = await this.prisma.application.findUnique({ where: { registrationNumber } });
+    if (holder) throw duplicateNumber(registrationNumber, holder.id);
 
-    // ID va holat emas — faqat urinish vaqti saqlanadi (ArcgisService.yoz izohiga qarang)
-    const boshlandi = a.arcgis_urinish_vaqti ?? new Date();
-    if (!a.arcgis_urinish_vaqti) await this.prisma.ariza.update({ where: { id }, data: { arcgis_urinish_vaqti: boshlandi } });
+    // only the attempt time is stored here, not the number or the status (see ArcgisService.addFeature)
+    const firstAttemptAt = application.arcgisAttemptAt ?? new Date();
+    if (!application.arcgisAttemptAt)
+      await this.prisma.application.update({ where: { id }, data: { arcgisAttemptAt: firstAttemptAt } });
 
     let objectId: number;
     try {
-      const description = `${idRaqam} | ${a.hujjat_nomi}`.slice(0, DESCRIPTION_MAX);
-      objectId = await this.arcgis.addFeature(description, toEsriPolygon(a.chegara as never), boshlandi);
+      const description = `${registrationNumber} | ${application.documentName}`.slice(0, DESCRIPTION_MAX_LENGTH);
+      objectId = await this.arcgis.addFeature(description, toEsriPolygon(application.boundary as never), firstAttemptAt);
     } catch (e) {
-      if (e instanceof ArcgisError) throw apiError(HttpStatus.BAD_GATEWAY, `ArcGIS qatlamiga yozib bo'lmadi (${e.message.replace(/\.+$/, '')}). Keyinroq qayta urinib ko'ring.`);
+      if (e instanceof ArcgisError)
+        throw apiError(
+          HttpStatus.BAD_GATEWAY,
+          `ArcGIS qatlamiga yozib bo'lmadi (${e.message.replace(/\.+$/, '')}). Keyinroq qayta urinib ko'ring.`,
+        );
       throw e;
     }
 
     try {
-      const r = await this.prisma.ariza.updateMany({
-        where: { id, holat: 'yuborilgan' },
-        data: { holat: 'hisobga_olingan', id_raqam: idRaqam, arcgis_object_id: objectId },
+      const { count } = await this.prisma.application.updateMany({
+        where: { id, status: 'SUBMITTED' },
+        data: { status: 'REGISTERED', registrationNumber, arcgisObjectId: objectId },
       });
-      if (r.count === 0) throw apiError(HttpStatus.CONFLICT, "Ariza holati o'zgargan, sahifani yangilang");
+      if (count === 0) throw apiError(HttpStatus.CONFLICT, STATE_CHANGED);
     } catch (e) {
-      // parallel tasdiqlashda unique cheklov ishlaydi
-      if (e instanceof Prisma.PrismaClientKnownRequestError && e.code === 'P2002') throw idTakrori(idRaqam);
+      // concurrent approvals hit the unique constraint
+      if (e instanceof Prisma.PrismaClientKnownRequestError && e.code === 'P2002') throw duplicateNumber(registrationNumber);
       throw e;
     }
-    return { id_raqam: idRaqam, arcgis_object_id: objectId };
+    return { id_raqam: registrationNumber, arcgis_object_id: objectId };
   }
 
-  async qaytar(id: number, body: unknown) {
-    const sabab = (body as { sabab?: unknown } | undefined)?.sabab;
-    if (typeof sabab !== 'string' || !sabab.trim()) throw new FieldValidationError({ sabab: 'Qaytarish sababi majburiy' });
-    await this.holatiShu(id, 'yuborilgan', 'Faqat yuborilgan arizani qaytarish mumkin');
-    const r = await this.prisma.ariza.updateMany({
-      where: { id, holat: 'yuborilgan' },
-      data: { holat: 'qaytarilgan', qaytarish_sababi: sabab.trim() },
+  async returnToApplicant(id: number, body: unknown) {
+    const reason = (body as { sabab?: unknown } | undefined)?.sabab;
+    if (typeof reason !== 'string' || !reason.trim()) throw new FieldValidationError({ sabab: 'Qaytarish sababi majburiy' });
+    await this.requireStatus(id, 'SUBMITTED', 'Faqat yuborilgan arizani qaytarish mumkin');
+    const { count } = await this.prisma.application.updateMany({
+      where: { id, status: 'SUBMITTED' },
+      data: { status: 'RETURNED', returnReason: reason.trim() },
     });
-    if (r.count === 0) throw apiError(HttpStatus.CONFLICT, "Ariza holati o'zgargan, sahifani yangilang");
-    return { id, holat: 'qaytarilgan' as const };
+    if (count === 0) throw apiError(HttpStatus.CONFLICT, STATE_CHANGED);
+    return toStatusDto(id, 'RETURNED');
   }
 
-  async fayl(id: number, tur: string) {
-    const f = (UPLOAD_FIELDS as readonly string[]).includes(tur)
-      ? await this.prisma.fayl.findUnique({ where: { ariza_id_tur: { ariza_id: id, tur: tur as UploadField } } })
+  async getFile(id: number, field: string) {
+    const file = isUploadField(field)
+      ? await this.prisma.applicationFile.findUnique({
+          where: { applicationId_kind: { applicationId: id, kind: FIELD_TO_FILE_KIND[field] } },
+        })
       : null;
-    if (!f) throw apiError(HttpStatus.NOT_FOUND, 'Fayl topilmadi');
-    return { ...f, toliqYol: join(this.uploadDir, f.yol) };
+    if (!file) throw apiError(HttpStatus.NOT_FOUND, 'Fayl topilmadi');
+    return { ...file, absolutePath: join(this.uploadDir, file.storagePath) };
   }
 
-  private async holatiShu(id: number, holat: Holat, xabar: string): Promise<Ariza> {
-    const a = await this.prisma.ariza.findUnique({ where: { id } });
-    if (!a) throw apiError(HttpStatus.NOT_FOUND, 'Ariza topilmadi');
-    if (a.holat !== holat) throw apiError(HttpStatus.CONFLICT, `${xabar} (hozirgi holat: ${a.holat})`);
-    return a;
+  private async requireStatus(id: number, status: ApplicationStatus, message: string): Promise<Application> {
+    const application = await this.prisma.application.findUnique({ where: { id } });
+    if (!application) throw apiError(HttpStatus.NOT_FOUND, 'Ariza topilmadi');
+    if (application.status !== status)
+      throw apiError(HttpStatus.CONFLICT, `${message} (hozirgi holat: ${STATUS_TO_API[application.status]})`);
+    return application;
   }
 
-  private tekshir(dataMatn: unknown, fayllar: Fayllar, fayllarMajburiy: boolean): ArizaData {
-    const maydonlar: Record<string, string> = {};
-    let qiymat: ArizaData | undefined;
+  private validate(rawData: unknown, files: UploadedFileMap, filesRequired: boolean): ApplicationInput {
+    const errors: Record<string, string> = {};
+    let input: ApplicationInput | undefined;
     try {
-      const r = arizaSchema.safeParse(JSON.parse(String(dataMatn ?? '')));
-      if (r.success) qiymat = r.data;
-      else for (const i of r.error.issues) maydonlar[String(i.path[0] ?? 'data')] ??= i.message;
+      const result = applicationPayloadSchema.safeParse(JSON.parse(String(rawData ?? '')));
+      if (result.success) input = result.data;
+      else for (const issue of result.error.issues) errors[String(issue.path[0] ?? 'data')] ??= issue.message;
     } catch {
-      maydonlar.data = "data maydoni to'g'ri JSON bo'lishi kerak";
+      errors.data = "data maydoni to'g'ri JSON bo'lishi kerak";
     }
-    for (const tur of UPLOAD_FIELDS) {
-      const x = checkUploadedFile(fayllar[tur]?.[0], fayllarMajburiy);
-      if (x) maydonlar[tur] = x;
+    for (const field of UPLOAD_FIELDS) {
+      const error = checkUploadedFile(files[field]?.[0], filesRequired);
+      if (error) errors[field] = error;
     }
-    if (!qiymat || Object.keys(maydonlar).length) throw new FieldValidationError(maydonlar);
-    return qiymat;
+    if (!input || Object.keys(errors).length) throw new FieldValidationError(errors);
+    return input;
   }
 
-  /** Fayl nomi foydalanuvchidan olinmaydi: {uploadDir}/{arizaId}/{tur}.{ext} */
-  private async saqlaFayllar(tx: Tx, arizaId: number, fayllar: Fayllar) {
-    for (const tur of UPLOAD_FIELDS) {
-      const f = fayllar[tur]?.[0];
-      if (!f) continue;
-      const { ext, mime } = detectFileType(f.buffer)!;
-      const yol = `${arizaId}/${tur}.${ext}`;
-      const toliq = join(this.uploadDir, yol);
-      await mkdir(dirname(toliq), { recursive: true });
-      await writeFile(toliq, f.buffer);
-      const eski = await tx.fayl.findUnique({ where: { ariza_id_tur: { ariza_id: arizaId, tur } } });
-      if (eski && eski.yol !== yol) await rm(join(this.uploadDir, eski.yol), { force: true });
-      const qator = { nomi: f.originalname.slice(0, 255), mime, hajm: f.size, yol };
-      await tx.fayl.upsert({
-        where: { ariza_id_tur: { ariza_id: arizaId, tur } },
-        create: { ariza_id: arizaId, tur, ...qator },
-        update: qator,
+  /** The stored name never comes from the user: {uploadDir}/{applicationId}/{kind}.{ext} */
+  private async storeFiles(tx: Tx, applicationId: number, files: UploadedFileMap) {
+    for (const field of UPLOAD_FIELDS) {
+      const upload = files[field]?.[0];
+      if (!upload) continue;
+      const kind = FIELD_TO_FILE_KIND[field];
+      const { ext, mime } = detectFileType(upload.buffer)!;
+      const storagePath = `${applicationId}/${kind.toLowerCase()}.${ext}`;
+      const absolutePath = join(this.uploadDir, storagePath);
+      await mkdir(dirname(absolutePath), { recursive: true });
+      await writeFile(absolutePath, upload.buffer);
+      const previous = await tx.applicationFile.findUnique({ where: { applicationId_kind: { applicationId, kind } } });
+      if (previous && previous.storagePath !== storagePath) await rm(join(this.uploadDir, previous.storagePath), { force: true });
+      const row = { originalName: upload.originalname.slice(0, 255), mimeType: mime, size: upload.size, storagePath };
+      await tx.applicationFile.upsert({
+        where: { applicationId_kind: { applicationId, kind } },
+        create: { applicationId, kind, ...row },
+        update: row,
       });
     }
   }
 }
 
-const ustunlar = (d: ArizaData) => ({
-  hujjat_nomi: d.hujjat_nomi,
-  hujjat_turi: d.hujjat_turi,
-  soato_kodi: d.soato_kodi,
-  tasdiq_sanasi: new Date(`${d.tasdiq_sanasi}T00:00:00Z`),
-  tasdiq_hujjati: d.tasdiq_hujjati,
-  chegara: d.chegara as Prisma.InputJsonValue,
+const toColumns = (input: ApplicationInput) => ({
+  documentName: input.documentName,
+  documentType: input.documentType,
+  soatoCode: input.soatoCode,
+  approvalDate: new Date(`${input.approvalDate}T00:00:00Z`),
+  approvalDecree: input.approvalDecree,
+  boundary: input.boundary as Prisma.InputJsonValue,
 });
 
-const qisqa = (a: Ariza & { fayllar?: Fayl[] }) => ({
-  id: a.id,
-  id_raqam: a.id_raqam,
-  hujjat_nomi: a.hujjat_nomi,
-  hujjat_turi: a.hujjat_turi,
-  soato_kodi: a.soato_kodi,
-  hudud_nomi: regionName(a.soato_kodi),
-  holat: a.holat,
-  yuborilgan_vaqt: a.yuborilgan_vaqt,
-  // tekshiruvchi uchun: faqat ko'rib chiqilmagan arizalarda
-  muddat: a.holat === 'yuborilgan' ? addBusinessDays(tashkentDate(a.yuborilgan_vaqt), TEKSHIRISH_MUDDATI) : null,
-});
-
-const idTakrori = (idRaqam: string, arizaId?: number) =>
+const duplicateNumber = (registrationNumber: string, applicationId?: number) =>
   apiError(
     HttpStatus.CONFLICT,
-    `${idRaqam} ID raqami allaqachon mavjud${arizaId ? ` (ariza #${arizaId})` : ''}: shu tur, hudud va yil uchun hujjat hisobga olingan`,
+    `${registrationNumber} ID raqami allaqachon mavjud${applicationId ? ` (ariza #${applicationId})` : ''}: shu tur, hudud va yil uchun hujjat hisobga olingan`,
   );
