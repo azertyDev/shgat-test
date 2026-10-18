@@ -17,7 +17,7 @@ import { FileFieldsInterceptor } from '@nestjs/platform-express';
 import { ApiBody, ApiConsumes, ApiHeader, ApiQuery, ApiTags } from '@nestjs/swagger';
 import type { Response } from 'express';
 import { createReadStream } from 'node:fs';
-import { ROLLAR, Rollar } from '../common/role.guard.js';
+import { ALL_ROLES, Role, Roles } from '../common/role.guard.js';
 import { SOATO_REGIONS } from '../soato/soato.js';
 import { ArizalarService, type Fayllar } from './applications.service.js';
 import { UPLOAD_FIELDS } from './api-contract.js';
@@ -52,13 +52,13 @@ const multipartBody = (majburiy: boolean) => ({
 });
 
 @ApiTags('arizalar')
-@ApiHeader({ name: 'X-Rol', enum: ROLLAR, required: true })
+@ApiHeader({ name: 'X-Rol', enum: Role, required: true })
 @Controller('arizalar')
 export class ArizalarController {
   constructor(private readonly arizalar: ArizalarService) {}
 
   @Post()
-  @Rollar(['ariza_beruvchi'])
+  @Roles([Role.APPLICANT])
   @UseInterceptors(fayllarInterceptor)
   @ApiConsumes('multipart/form-data')
   @ApiBody(multipartBody(true))
@@ -67,7 +67,7 @@ export class ArizalarController {
   }
 
   @Get()
-  @Rollar(ROLLAR)
+  @Roles(ALL_ROLES)
   @ApiQuery({ name: 'holat', required: false, enum: ['yuborilgan', 'hisobga_olingan', 'qaytarilgan'] })
   @ApiQuery({ name: 'hujjat_turi', required: false })
   @ApiQuery({ name: 'soato_kodi', required: false })
@@ -78,13 +78,13 @@ export class ArizalarController {
   }
 
   @Get(':id')
-  @Rollar(ROLLAR)
+  @Roles(ALL_ROLES)
   bitta(@Param('id', ParseIntPipe) id: number) {
     return this.arizalar.bitta(id);
   }
 
   @Put(':id')
-  @Rollar(['ariza_beruvchi'])
+  @Roles([Role.APPLICANT])
   @UseInterceptors(fayllarInterceptor)
   @ApiConsumes('multipart/form-data')
   @ApiBody(multipartBody(false))
@@ -94,14 +94,14 @@ export class ArizalarController {
 
   @Post(':id/tasdiqlash')
   @HttpCode(200)
-  @Rollar(['tekshiruvchi'])
+  @Roles([Role.REVIEWER])
   tasdiqla(@Param('id', ParseIntPipe) id: number) {
     return this.arizalar.tasdiqla(id);
   }
 
   @Post(':id/qaytarish')
   @HttpCode(200)
-  @Rollar(['tekshiruvchi'])
+  @Roles([Role.REVIEWER])
   @ApiBody({ schema: { type: 'object', required: ['sabab'], properties: { sabab: { type: 'string' } } } })
   qaytar(@Param('id', ParseIntPipe) id: number, @Body() body: unknown) {
     return this.arizalar.qaytar(id, body);
@@ -125,11 +125,11 @@ export class ArizalarController {
 }
 
 @ApiTags('soato')
-@ApiHeader({ name: 'X-Rol', enum: ROLLAR, required: true })
+@ApiHeader({ name: 'X-Rol', enum: Role, required: true })
 @Controller('soato')
 export class SoatoController {
   @Get()
-  @Rollar(ROLLAR)
+  @Roles(ALL_ROLES)
   royxat() {
     return SOATO_REGIONS;
   }

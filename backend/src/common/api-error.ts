@@ -1,10 +1,17 @@
 import { HttpException, HttpStatus } from '@nestjs/common';
 
-/** Yagona xato formati: {"xato": "...", "maydonlar": {...}} */
-export const xato = (status: HttpStatus, matn: string) => new HttpException({ xato: matn }, status);
+/** Unified error body fixed by the task spec: {"xato": "message", "maydonlar": {"field": "message"}}. */
+export interface ApiErrorBody {
+  xato: string;
+  maydonlar?: Record<string, string>;
+}
 
-export class ValidatsiyaXatosi extends HttpException {
-  constructor(maydonlar: Record<string, string>, matn = "Ma'lumotlar noto'g'ri to'ldirilgan") {
-    super({ xato: matn, maydonlar }, HttpStatus.UNPROCESSABLE_ENTITY);
+export const apiError = (status: HttpStatus, message: string) =>
+  new HttpException({ xato: message } satisfies ApiErrorBody, status);
+
+/** 422 with per-field messages; keys are wire field names. */
+export class FieldValidationError extends HttpException {
+  constructor(fields: Record<string, string>, message = "Ma'lumotlar noto'g'ri to'ldirilgan") {
+    super({ xato: message, maydonlar: fields } satisfies ApiErrorBody, HttpStatus.UNPROCESSABLE_ENTITY);
   }
 }

@@ -1,25 +1,30 @@
 import { CanActivate, ExecutionContext, HttpStatus, Injectable } from '@nestjs/common';
 import { Reflector } from '@nestjs/core';
 import type { Request } from 'express';
-import { xato } from './api-error.js';
+import { apiError } from './api-error.js';
 
-export const ROLLAR = ['ariza_beruvchi', 'tekshiruvchi'] as const;
-export type Rol = (typeof ROLLAR)[number];
+/** Values are the X-Rol header values fixed by the task spec. */
+export enum Role {
+  APPLICANT = 'ariza_beruvchi',
+  REVIEWER = 'tekshiruvchi',
+}
 
-/** Endpoint uchun ruxsat etilgan rollar. Dekorator qo'yilmagan yo'l ochiq (masalan, fayl yuklab olish havolasi). */
-export const Rollar = Reflector.createDecorator<readonly Rol[]>();
+export const ALL_ROLES: readonly Role[] = Object.values(Role);
 
-/** Soddalashtirilgan rol: X-Rol sarlavhasi (topshiriq 5-bo'lim). */
+/** Roles allowed for an endpoint. Routes without it are public (e.g. the file download link). */
+export const Roles = Reflector.createDecorator<readonly Role[]>();
+
+/** Simplified role check by the X-Rol header (task spec, section 5). */
 @Injectable()
-export class RolGuard implements CanActivate {
+export class RoleGuard implements CanActivate {
   constructor(private readonly reflector: Reflector) {}
 
   canActivate(ctx: ExecutionContext): boolean {
-    const kerak = this.reflector.get(Rollar, ctx.getHandler());
-    if (!kerak) return true;
-    const rol = ctx.switchToHttp().getRequest<Request>().header('x-rol');
-    if (!rol) throw xato(HttpStatus.FORBIDDEN, 'X-Rol sarlavhasi kerak: ariza_beruvchi yoki tekshiruvchi');
-    if (!kerak.includes(rol as Rol)) throw xato(HttpStatus.FORBIDDEN, `Bu amal faqat ${kerak.join(', ')} uchun`);
+    const allowed = this.reflector.get(Roles, ctx.getHandler());
+    if (!allowed) return true;
+    const role = ctx.switchToHttp().getRequest<Request>().header('x-rol');
+    if (!role) throw apiError(HttpStatus.FORBIDDEN, 'X-Rol sarlavhasi kerak: ariza_beruvchi yoki tekshiruvchi');
+    if (!allowed.includes(role as Role)) throw apiError(HttpStatus.FORBIDDEN, `Bu amal faqat ${allowed.join(', ')} uchun`);
     return true;
   }
 }

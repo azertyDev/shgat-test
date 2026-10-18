@@ -7,26 +7,28 @@ import {
   PayloadTooLargeException,
 } from '@nestjs/common';
 import type { Response } from 'express';
+import type { ApiErrorBody } from './api-error.js';
 
-/** Barcha xatolarni {"xato", "maydonlar"} formatiga keltiradi. */
+/** Converts every error into the unified ApiErrorBody shape. */
 @Catch()
-export class XatoFilter implements ExceptionFilter {
-  private readonly log = new Logger('Xato');
+export class ApiExceptionFilter implements ExceptionFilter {
+  private readonly logger = new Logger(ApiExceptionFilter.name);
 
   catch(e: unknown, host: ArgumentsHost) {
     const res = host.switchToHttp().getResponse<Response>();
+    const send = (status: number, body: ApiErrorBody) => res.status(status).json(body);
 
-    // multer cheklovidan (50 MB) oshgan fayl — maydon nomi multer'dan kelmaydi
+    // file above the multer hard limit (50 MB): multer does not report which field it was
     if (e instanceof PayloadTooLargeException) {
-      return res.status(422).json({ xato: 'Fayl hajmi 20 MB dan oshmasin', maydonlar: { fayllar: 'Fayl juda katta' } });
+      return send(422, { xato: 'Fayl hajmi 20 MB dan oshmasin', maydonlar: { fayllar: 'Fayl juda katta' } });
     }
     if (e instanceof HttpException) {
       const body = e.getResponse();
-      if (typeof body === 'object' && body !== null && 'xato' in body) return res.status(e.getStatus()).json(body);
-      const msg = typeof body === 'string' ? body : (body as { message?: unknown }).message;
-      return res.status(e.getStatus()).json({ xato: Array.isArray(msg) ? msg.join('; ') : String(msg ?? e.message) });
+      if (typeof body === 'object' && body !== null && 'xato' in body) return send(e.getStatus(), body as ApiErrorBody);
+      const message = typeof body === 'string' ? body : (body as { message?: unknown }).message;
+      return send(e.getStatus(), { xato: Array.isArray(message) ? message.join('; ') : String(message ?? e.message) });
     }
-    this.log.error(e instanceof Error ? e.stack : e);
-    return res.status(500).json({ xato: 'Ichki server xatosi' });
+    this.logger.error(e instanceof Error ? e.stack : e);
+    return send(500, { xato: 'Ichki server xatosi' });
   }
 }

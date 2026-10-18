@@ -2,12 +2,12 @@ import 'dotenv/config';
 import { NestFactory } from '@nestjs/core';
 import { DocumentBuilder, SwaggerModule } from '@nestjs/swagger';
 import { AppModule } from './app.module.js';
-import { XatoFilter } from './common/api-exception.filter.js';
+import { ApiExceptionFilter } from './common/api-exception.filter.js';
 
 async function bootstrap() {
   const app = await NestFactory.create(AppModule);
   app.setGlobalPrefix('api');
-  app.useGlobalFilters(new XatoFilter());
+  app.useGlobalFilters(new ApiExceptionFilter());
   app.enableCors();
 
   const config = new DocumentBuilder()

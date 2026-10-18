@@ -2,7 +2,7 @@ import { HttpStatus, Injectable } from '@nestjs/common';
 import { mkdir, rm, writeFile } from 'node:fs/promises';
 import { dirname, join, resolve } from 'node:path';
 import { Holat, Prisma, type Ariza, type Fayl } from '../generated/prisma/client.js';
-import { ValidatsiyaXatosi, xato } from '../common/api-error.js';
+import { apiError, FieldValidationError } from '../common/api-error.js';
 import { PrismaService } from '../prisma.service.js';
 import { regionName } from '../soato/soato.js';
 import { ArcgisService, ArcgisXatosi } from './arcgis.service.js';
@@ -43,7 +43,7 @@ export class ArizalarService {
     if (q.holat && !(q.holat in Holat)) maydonlar.holat = `Holatlardan biri: ${Object.keys(Holat).join(', ')}`;
     if (q.hujjat_turi && !(HUJJAT_TURLARI as readonly string[]).includes(q.hujjat_turi))
       maydonlar.hujjat_turi = `Turlardan biri: ${HUJJAT_TURLARI.join(', ')}`;
-    if (Object.keys(maydonlar).length) throw new ValidatsiyaXatosi(maydonlar);
+    if (Object.keys(maydonlar).length) throw new FieldValidationError(maydonlar);
 
     const sahifa = Math.max(1, Number.parseInt(q.sahifa ?? '', 10) || 1);
     const hajm = Math.min(100, Math.max(1, Number.parseInt(q.hajm ?? '', 10) || 20));
@@ -61,7 +61,7 @@ export class ArizalarService {
 
   async bitta(id: number) {
     const a = await this.prisma.ariza.findUnique({ where: { id }, include: { fayllar: true } });
-    if (!a) throw xato(HttpStatus.NOT_FOUND, 'Ariza topilmadi');
+    if (!a) throw apiError(HttpStatus.NOT_FOUND, 'Ariza topilmadi');
     return {
       ...qisqa(a),
       tasdiq_sanasi: a.tasdiq_sanasi.toISOString().slice(0, 10),
@@ -88,7 +88,7 @@ export class ArizalarService {
         where: { id, holat: 'qaytarilgan' },
         data: { ...ustunlar(d), holat: 'yuborilgan', yuborilgan_vaqt: new Date(), qaytarish_sababi: null, arcgis_urinish_vaqti: null },
       });
-      if (r.count === 0) throw xato(HttpStatus.CONFLICT, "Ariza holati o'zgargan, sahifani yangilang");
+      if (r.count === 0) throw apiError(HttpStatus.CONFLICT, "Ariza holati o'zgargan, sahifani yangilang");
       await this.saqlaFayllar(tx, id, fayllar);
     });
     return { id, holat: 'yuborilgan' as const };
@@ -114,7 +114,7 @@ export class ArizalarService {
       const description = `${idRaqam} | ${a.hujjat_nomi}`.slice(0, DESCRIPTION_MAX);
       objectId = await this.arcgis.yoz(description, toEsriPolygon(a.chegara as never), boshlandi);
     } catch (e) {
-      if (e instanceof ArcgisXatosi) throw xato(HttpStatus.BAD_GATEWAY, `ArcGIS qatlamiga yozib bo'lmadi (${e.message.replace(/\.+$/, '')}). Keyinroq qayta urinib ko'ring.`);
+      if (e instanceof ArcgisXatosi) throw apiError(HttpStatus.BAD_GATEWAY, `ArcGIS qatlamiga yozib bo'lmadi (${e.message.replace(/\.+$/, '')}). Keyinroq qayta urinib ko'ring.`);
       throw e;
     }
 
@@ -123,7 +123,7 @@ export class ArizalarService {
         where: { id, holat: 'yuborilgan' },
         data: { holat: 'hisobga_olingan', id_raqam: idRaqam, arcgis_object_id: objectId },
       });
-      if (r.count === 0) throw xato(HttpStatus.CONFLICT, "Ariza holati o'zgargan, sahifani yangilang");
+      if (r.count === 0) throw apiError(HttpStatus.CONFLICT, "Ariza holati o'zgargan, sahifani yangilang");
     } catch (e) {
       // parallel tasdiqlashda unique cheklov ishlaydi
       if (e instanceof Prisma.PrismaClientKnownRequestError && e.code === 'P2002') throw idTakrori(idRaqam);
@@ -134,13 +134,13 @@ export class ArizalarService {
 
   async qaytar(id: number, body: unknown) {
     const sabab = (body as { sabab?: unknown } | undefined)?.sabab;
-    if (typeof sabab !== 'string' || !sabab.trim()) throw new ValidatsiyaXatosi({ sabab: 'Qaytarish sababi majburiy' });
+    if (typeof sabab !== 'string' || !sabab.trim()) throw new FieldValidationError({ sabab: 'Qaytarish sababi majburiy' });
     await this.holatiShu(id, 'yuborilgan', 'Faqat yuborilgan arizani qaytarish mumkin');
     const r = await this.prisma.ariza.updateMany({
       where: { id, holat: 'yuborilgan' },
       data: { holat: 'qaytarilgan', qaytarish_sababi: sabab.trim() },
     });
-    if (r.count === 0) throw xato(HttpStatus.CONFLICT, "Ariza holati o'zgargan, sahifani yangilang");
+    if (r.count === 0) throw apiError(HttpStatus.CONFLICT, "Ariza holati o'zgargan, sahifani yangilang");
     return { id, holat: 'qaytarilgan' as const };
   }
 
@@ -148,14 +148,14 @@ export class ArizalarService {
     const f = (UPLOAD_FIELDS as readonly string[]).includes(tur)
       ? await this.prisma.fayl.findUnique({ where: { ariza_id_tur: { ariza_id: id, tur: tur as UploadField } } })
       : null;
-    if (!f) throw xato(HttpStatus.NOT_FOUND, 'Fayl topilmadi');
+    if (!f) throw apiError(HttpStatus.NOT_FOUND, 'Fayl topilmadi');
     return { ...f, toliqYol: join(this.uploadDir, f.yol) };
   }
 
   private async holatiShu(id: number, holat: Holat, xabar: string): Promise<Ariza> {
     const a = await this.prisma.ariza.findUnique({ where: { id } });
-    if (!a) throw xato(HttpStatus.NOT_FOUND, 'Ariza topilmadi');
-    if (a.holat !== holat) throw xato(HttpStatus.CONFLICT, `${xabar} (hozirgi holat: ${a.holat})`);
+    if (!a) throw apiError(HttpStatus.NOT_FOUND, 'Ariza topilmadi');
+    if (a.holat !== holat) throw apiError(HttpStatus.CONFLICT, `${xabar} (hozirgi holat: ${a.holat})`);
     return a;
   }
 
@@ -173,7 +173,7 @@ export class ArizalarService {
       const x = checkUploadedFile(fayllar[tur]?.[0], fayllarMajburiy);
       if (x) maydonlar[tur] = x;
     }
-    if (!qiymat || Object.keys(maydonlar).length) throw new ValidatsiyaXatosi(maydonlar);
+    if (!qiymat || Object.keys(maydonlar).length) throw new FieldValidationError(maydonlar);
     return qiymat;
   }
 
@@ -222,7 +222,7 @@ const qisqa = (a: Ariza & { fayllar?: Fayl[] }) => ({
 });
 
 const idTakrori = (idRaqam: string, arizaId?: number) =>
-  xato(
+  apiError(
     HttpStatus.CONFLICT,
     `${idRaqam} ID raqami allaqachon mavjud${arizaId ? ` (ariza #${arizaId})` : ''}: shu tur, hudud va yil uchun hujjat hisobga olingan`,
   );
