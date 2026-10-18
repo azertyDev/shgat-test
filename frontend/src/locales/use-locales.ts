@@ -4,7 +4,7 @@ import { useCallback } from 'react';
 import { useTranslation } from 'react-i18next';
 import { setStorage } from 'minimal-shared/utils';
 
-import { lotindanKirillga } from './kirill';
+import { lotindanKirillga } from './transliterate';
 import { storageConfig, getCurrentLang } from './locales-config';
 
 // ----------------------------------------------------------------------

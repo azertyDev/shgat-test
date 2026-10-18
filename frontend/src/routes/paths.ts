@@ -2,10 +2,10 @@
 
 export const paths = {
   root: '/',
-  arizalar: {
-    root: '/',
-    yangi: '/arizalar/yangi',
-    details: (id: number | string) => `/arizalar/${id}`,
-    tahrir: (id: number | string) => `/arizalar/${id}/tahrir`,
+  applications: {
+    list: '/',
+    new: '/applications/new',
+    details: (id: number | string) => `/applications/${id}`,
+    edit: (id: number | string) => `/applications/${id}/edit`,
   },
 };

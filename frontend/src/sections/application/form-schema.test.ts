@@ -1,4 +1,4 @@
-import { bolajakId, formDataga, arizaFormSchema } from './schema';
+import { bolajakId, formDataga, arizaFormSchema } from './form-schema';
 
 const pdf = (size = 10, name = 'a.pdf') => {
   const f = new File(['%PDF-1.4'], name, { type: 'application/pdf' });

@@ -22,8 +22,8 @@ import { useTranslate } from 'src/locales';
 
 import { Iconify } from 'src/components/iconify';
 
-import { POLIGON_BELGI, XARITA_MARKAZI } from './xarita-config';
-import { TASHQARIDA, validateChegara, chegaraHalqalari, geojsonDanChegara, halqalardanChegara } from '../chegara';
+import { POLIGON_BELGI, XARITA_MARKAZI } from './map-config';
+import { TASHQARIDA, validateChegara, chegaraHalqalari, geojsonDanChegara, halqalardanChegara } from '../boundary';
 
 // ----------------------------------------------------------------------
 

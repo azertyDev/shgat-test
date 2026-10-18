@@ -10,68 +10,69 @@
 
 import { Route as rootRouteImport } from './pages/__root'
 import { Route as IndexRouteImport } from './pages/index'
-import { Route as ArizalarYangiRouteImport } from './pages/arizalar/yangi'
-import { Route as ArizalarIdIndexRouteImport } from './pages/arizalar/$id/index'
-import { Route as ArizalarIdTahrirRouteImport } from './pages/arizalar/$id/tahrir'
+import { Route as ApplicationsNewRouteImport } from './pages/applications/new'
+import { Route as ApplicationsIdIndexRouteImport } from './pages/applications/$id/index'
+import { Route as ApplicationsIdEditRouteImport } from './pages/applications/$id/edit'
 
 const IndexRoute = IndexRouteImport.update({
   id: '/',
   path: '/',
   getParentRoute: () => rootRouteImport,
 } as any)
-const ArizalarYangiRoute = ArizalarYangiRouteImport.update({
-  id: '/arizalar/yangi',
-  path: '/arizalar/yangi',
+const ApplicationsNewRoute = ApplicationsNewRouteImport.update({
+  id: '/applications/new',
+  path: '/applications/new',
   getParentRoute: () => rootRouteImport,
 } as any)
-const ArizalarIdIndexRoute = ArizalarIdIndexRouteImport.update({
-  id: '/arizalar/$id/',
-  path: '/arizalar/$id/',
+const ApplicationsIdIndexRoute = ApplicationsIdIndexRouteImport.update({
+  id: '/applications/$id/',
+  path: '/applications/$id/',
   getParentRoute: () => rootRouteImport,
 } as any)
-const ArizalarIdTahrirRoute = ArizalarIdTahrirRouteImport.update({
-  id: '/arizalar/$id/tahrir',
-  path: '/arizalar/$id/tahrir',
+const ApplicationsIdEditRoute = ApplicationsIdEditRouteImport.update({
+  id: '/applications/$id/edit',
+  path: '/applications/$id/edit',
   getParentRoute: () => rootRouteImport,
 } as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
-  '/arizalar/yangi': typeof ArizalarYangiRoute
-  '/arizalar/$id/tahrir': typeof ArizalarIdTahrirRoute
-  '/arizalar/$id/': typeof ArizalarIdIndexRoute
+  '/applications/new': typeof ApplicationsNewRoute
+  '/applications/$id/edit': typeof ApplicationsIdEditRoute
+  '/applications/$id/': typeof ApplicationsIdIndexRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
-  '/arizalar/yangi': typeof ArizalarYangiRoute
-  '/arizalar/$id/tahrir': typeof ArizalarIdTahrirRoute
-  '/arizalar/$id': typeof ArizalarIdIndexRoute
+  '/applications/new': typeof ApplicationsNewRoute
+  '/applications/$id/edit': typeof ApplicationsIdEditRoute
+  '/applications/$id': typeof ApplicationsIdIndexRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/': typeof IndexRoute
-  '/arizalar/yangi': typeof ArizalarYangiRoute
-  '/arizalar/$id/tahrir': typeof ArizalarIdTahrirRoute
-  '/arizalar/$id/': typeof ArizalarIdIndexRoute
+  '/applications/new': typeof ApplicationsNewRoute
+  '/applications/$id/edit': typeof ApplicationsIdEditRoute
+  '/applications/$id/': typeof ApplicationsIdIndexRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
-  fullPaths: '/' | '/arizalar/yangi' | '/arizalar/$id/tahrir' | '/arizalar/$id/'
+  fullPaths:
+    '/' | '/applications/new' | '/applications/$id/edit' | '/applications/$id/'
   fileRoutesByTo: FileRoutesByTo
-  to: '/' | '/arizalar/yangi' | '/arizalar/$id/tahrir' | '/arizalar/$id'
+  to: '/' | '/applications/new' | '/applications/$id/edit' | '/applications/$id'
   id:
     | '__root__'
     | '/'
-    | '/arizalar/yangi'
-    | '/arizalar/$id/tahrir'
-    | '/arizalar/$id/'
+    | '/applications/new'
+    | '/applications/$id/edit'
+    | '/applications/$id/'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
-  ArizalarYangiRoute: typeof ArizalarYangiRoute
-  ArizalarIdTahrirRoute: typeof ArizalarIdTahrirRoute
-  ArizalarIdIndexRoute: typeof ArizalarIdIndexRoute
+  ApplicationsNewRoute: typeof ApplicationsNewRoute
+  ApplicationsIdEditRoute: typeof ApplicationsIdEditRoute
+  ApplicationsIdIndexRoute: typeof ApplicationsIdIndexRoute
 }
 
 declare module '@tanstack/react-router' {
@@ -83,25 +84,25 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof IndexRouteImport
       parentRoute: typeof rootRouteImport
     }
-    '/arizalar/yangi': {
-      id: '/arizalar/yangi'
-      path: '/arizalar/yangi'
-      fullPath: '/arizalar/yangi'
-      preLoaderRoute: typeof ArizalarYangiRouteImport
+    '/applications/new': {
+      id: '/applications/new'
+      path: '/applications/new'
+      fullPath: '/applications/new'
+      preLoaderRoute: typeof ApplicationsNewRouteImport
       parentRoute: typeof rootRouteImport
     }
-    '/arizalar/$id/': {
-      id: '/arizalar/$id/'
-      path: '/arizalar/$id'
-      fullPath: '/arizalar/$id/'
-      preLoaderRoute: typeof ArizalarIdIndexRouteImport
+    '/applications/$id/': {
+      id: '/applications/$id/'
+      path: '/applications/$id'
+      fullPath: '/applications/$id/'
+      preLoaderRoute: typeof ApplicationsIdIndexRouteImport
       parentRoute: typeof rootRouteImport
     }
-    '/arizalar/$id/tahrir': {
-      id: '/arizalar/$id/tahrir'
-      path: '/arizalar/$id/tahrir'
-      fullPath: '/arizalar/$id/tahrir'
-      preLoaderRoute: typeof ArizalarIdTahrirRouteImport
+    '/applications/$id/edit': {
+      id: '/applications/$id/edit'
+      path: '/applications/$id/edit'
+      fullPath: '/applications/$id/edit'
+      preLoaderRoute: typeof ApplicationsIdEditRouteImport
       parentRoute: typeof rootRouteImport
     }
   }
@@ -109,9 +110,9 @@ declare module '@tanstack/react-router' {
 
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
-  ArizalarYangiRoute: ArizalarYangiRoute,
-  ArizalarIdTahrirRoute: ArizalarIdTahrirRoute,
-  ArizalarIdIndexRoute: ArizalarIdIndexRoute,
+  ApplicationsNewRoute: ApplicationsNewRoute,
+  ApplicationsIdEditRoute: ApplicationsIdEditRoute,
+  ApplicationsIdIndexRoute: ApplicationsIdIndexRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)

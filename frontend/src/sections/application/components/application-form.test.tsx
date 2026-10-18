@@ -5,10 +5,10 @@ import { screen, waitFor, fireEvent } from '@testing-library/react';
 
 import { jsonJavob, renderWithProviders } from 'src/test/render';
 
-import { ArizaForm } from './ariza-form';
+import { ArizaForm } from './application-form';
 
 // ArcGIS xaritasi jsdom'da ishlamaydi — o'rniga chegara tanlovchi tugma
-vi.mock('./chegara-xarita', () => ({
+vi.mock('./boundary-editor', () => ({
   ChegaraXarita: ({ onChange, error }: { onChange: (g: unknown) => void; error?: string }) => (
     <div>
       <button

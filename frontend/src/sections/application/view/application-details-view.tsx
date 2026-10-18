@@ -21,12 +21,12 @@ import { useTranslate } from 'src/locales';
 import { Iconify } from 'src/components/iconify';
 import { FileThumbnail } from 'src/components/file-thumbnail';
 
-import { useRol } from '../rol';
 import { faylUrl } from '../api';
+import { useRol } from '../role-store';
 import { arizaQuery } from '../queries';
-import { HolatLabel } from '../components/holat-label';
-import { ArizaXarita } from '../components/ariza-xarita';
-import { TekshiruvAmallari } from '../components/tekshiruv-amallari';
+import { HolatLabel } from '../components/status-label';
+import { ArizaXarita } from '../components/application-map';
+import { TekshiruvAmallari } from '../components/review-actions';
 
 // ----------------------------------------------------------------------
 
@@ -74,7 +74,7 @@ export function ArizaDetailsView({ id }: { id: number }) {
           sx={{ mb: 3 }}
           action={
             rol === 'ariza_beruvchi' && (
-              <ButtonLink to="/arizalar/$id/tahrir" params={{ id: String(a.id) }} color="inherit" size="small" startIcon={<Iconify icon="solar:pen-bold" />}>
+              <ButtonLink to="/applications/$id/edit" params={{ id: String(a.id) }} color="inherit" size="small" startIcon={<Iconify icon="solar:pen-bold" />}>
                 {t('batafsil.tuzatish')}
               </ButtonLink>
             )

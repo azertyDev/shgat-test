@@ -3,7 +3,7 @@ import type { Chegara, FaylTuri } from './types';
 import { z } from 'zod';
 import dayjs from 'dayjs';
 
-import { validateChegara } from './chegara';
+import { validateChegara } from './boundary';
 import { FAYL_TURLARI, HUJJAT_TURLARI } from './types';
 
 // Xabarlar lotinda; kirill rejimida `tr()` orqali o'giriladi.

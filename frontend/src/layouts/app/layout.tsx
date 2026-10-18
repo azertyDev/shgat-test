@@ -1,5 +1,5 @@
 import type { LangCode } from 'src/locales';
-import type { Rol } from 'src/sections/ariza/types';
+import type { Rol } from 'src/sections/application/types';
 
 import { Link } from '@tanstack/react-router';
 
@@ -17,7 +17,7 @@ import { Logo } from 'src/components/logo';
 import { Iconify } from 'src/components/iconify';
 import { useSettingsContext } from 'src/components/settings';
 
-import { setRol, useRol } from 'src/sections/ariza/rol';
+import { setRol, useRol } from 'src/sections/application/role-store';
 
 import { MainSection, LayoutSection, HeaderSection } from '../core';
 

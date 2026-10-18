@@ -10,7 +10,7 @@ import { toast } from 'src/components/snackbar';
 
 import { api } from '../api';
 import { arizaKeys } from '../queries';
-import { ArizaForm } from '../components/ariza-form';
+import { ArizaForm } from '../components/application-form';
 
 // ----------------------------------------------------------------------
 
@@ -29,7 +29,7 @@ export function ArizaCreateView() {
         onMuvaffaqiyat={(id) => {
           qc.invalidateQueries({ queryKey: arizaKeys.all });
           toast.success(t('forma.yuborildi'));
-          navigate({ to: '/arizalar/$id', params: { id: String(id) } });
+          navigate({ to: '/applications/$id', params: { id: String(id) } });
         }}
       />
     </Container>

@@ -18,8 +18,8 @@ import Typography from '@mui/material/Typography';
 import { CONFIG } from 'src/global-config';
 import { useTranslate } from 'src/locales';
 
-import { chegaraHalqalari } from '../chegara';
-import { POLIGON_BELGI, XARITA_MARKAZI } from './xarita-config';
+import { chegaraHalqalari } from '../boundary';
+import { POLIGON_BELGI, XARITA_MARKAZI } from './map-config';
 
 // ----------------------------------------------------------------------
 

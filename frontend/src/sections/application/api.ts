@@ -2,7 +2,7 @@ import type { Soato, Holat, Royxat, ArizaToliq, RoyxatSorovi } from './types';
 
 import { CONFIG } from 'src/global-config';
 
-import { getRol } from './rol';
+import { getRol } from './role-store';
 
 // ----------------------------------------------------------------------
 

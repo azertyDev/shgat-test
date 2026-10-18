@@ -3,7 +3,7 @@ import { screen, within, waitFor } from '@testing-library/react';
 
 import { jsonJavob, renderWithProviders } from 'src/test/render';
 
-import { TekshiruvAmallari } from './tekshiruv-amallari';
+import { TekshiruvAmallari } from './review-actions';
 
 describe('TekshiruvAmallari', () => {
   const fetchMock = vi.fn<typeof fetch>();

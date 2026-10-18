@@ -1,7 +1,7 @@
 import type { InitOptions } from 'i18next';
 
-import { lugatniOgir } from './kirill';
 import { uzLatn } from './langs/uz-latn';
+import { lugatniOgir } from './transliterate';
 
 // ----------------------------------------------------------------------
 

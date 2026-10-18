@@ -1,4 +1,4 @@
-import { lugatniOgir, lotindanKirillga } from './kirill';
+import { lugatniOgir, lotindanKirillga } from './transliterate';
 
 describe('lotindanKirillga', () => {
   it.each([

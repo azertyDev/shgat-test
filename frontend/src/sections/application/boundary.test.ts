@@ -1,4 +1,4 @@
-import { TASHQARIDA, validateChegara, geojsonDanChegara, halqalardanChegara } from './chegara';
+import { TASHQARIDA, validateChegara, geojsonDanChegara, halqalardanChegara } from './boundary';
 
 const kvadrat = [[[72.3, 40.75], [72.4, 40.75], [72.4, 40.81], [72.3, 40.81], [72.3, 40.75]]];
 

@@ -1,5 +1,5 @@
 import type { ArizaToliq } from '../types';
-import type { ArizaFormValues } from '../schema';
+import type { ArizaFormValues } from '../form-schema';
 
 import { useState } from 'react';
 import { useForm } from '@tanstack/react-form';
@@ -21,10 +21,10 @@ import { useTranslate } from 'src/locales';
 
 import { ApiXato } from '../api';
 import { soatoQuery } from '../queries';
-import { FaylMaydon } from './fayl-maydon';
-import { ChegaraXarita } from './chegara-xarita';
+import { FaylMaydon } from './file-field';
+import { ChegaraXarita } from './boundary-editor';
 import { FAYL_TURLARI, HUJJAT_TURLARI } from '../types';
-import { bugun, bolajakId, formDataga, arizaFormSchema } from '../schema';
+import { bugun, bolajakId, formDataga, arizaFormSchema } from '../form-schema';
 
 // ----------------------------------------------------------------------
 

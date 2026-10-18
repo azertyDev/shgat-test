@@ -1,5 +1,5 @@
 import type { Holat } from '../types';
-import type { RoyxatSearch } from '../search';
+import type { RoyxatSearch } from '../list-search';
 
 import dayjs from 'dayjs';
 import { useQuery } from '@tanstack/react-query';
@@ -31,11 +31,11 @@ import { Iconify } from 'src/components/iconify';
 import { TableNoData } from 'src/components/table';
 import { Scrollbar } from 'src/components/scrollbar';
 
-import { useRol } from '../rol';
+import { useRol } from '../role-store';
 import { royxatQuery } from '../queries';
-import { STANDART_HAJM } from '../search';
+import { STANDART_HAJM } from '../list-search';
 import { HOLATLAR, HUJJAT_TURLARI } from '../types';
-import { HolatLabel } from '../components/holat-label';
+import { HolatLabel } from '../components/status-label';
 
 // ----------------------------------------------------------------------
 
@@ -61,7 +61,7 @@ export function ArizaListView({ search }: { search: RoyxatSearch }) {
       <Stack direction="row" sx={{ mb: 3, alignItems: 'center', justifyContent: 'space-between', gap: 2, flexWrap: 'wrap' }}>
         <Typography variant="h4">{t('royxat.sarlavha')}</Typography>
         {rol === 'ariza_beruvchi' && (
-          <ButtonLink to="/arizalar/yangi" variant="contained" startIcon={<Iconify icon="solar:add-circle-bold" />}>
+          <ButtonLink to="/applications/new" variant="contained" startIcon={<Iconify icon="solar:add-circle-bold" />}>
             {t('nav.yangi')}
           </ButtonLink>
         )}
@@ -125,7 +125,7 @@ export function ArizaListView({ search }: { search: RoyxatSearch }) {
                     key={a.id}
                     hover
                     sx={{ cursor: 'pointer' }}
-                    onClick={() => navigate({ to: '/arizalar/$id', params: { id: String(a.id) } })}
+                    onClick={() => navigate({ to: '/applications/$id', params: { id: String(a.id) } })}
                   >
                     <TableCell sx={{ whiteSpace: 'nowrap', fontWeight: 600 }}>
                       {a.id_raqam ?? (
@@ -135,7 +135,7 @@ export function ArizaListView({ search }: { search: RoyxatSearch }) {
                       )}
                     </TableCell>
                     <TableCell>
-                      <Link to="/arizalar/$id" params={{ id: String(a.id) }} style={{ color: 'inherit' }} onClick={(e) => e.stopPropagation()}>
+                      <Link to="/applications/$id" params={{ id: String(a.id) }} style={{ color: 'inherit' }} onClick={(e) => e.stopPropagation()}>
                         {a.hujjat_nomi}
                       </Link>
                     </TableCell>
