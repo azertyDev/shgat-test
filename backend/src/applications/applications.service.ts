@@ -26,6 +26,7 @@ export type UploadedFileMap = Partial<Record<UploadField, Express.Multer.File[]>
 type Tx = Prisma.TransactionClient;
 
 const DESCRIPTION_MAX_LENGTH = 75; // length of the description field in the ArcGIS layer
+const MAX_PAGE = 1_000_000;
 const STATE_CHANGED = "Ariza holati o'zgargan, sahifani yangilang";
 
 @Injectable()
@@ -60,7 +61,8 @@ export class ApplicationsService {
       errors.hujjat_turi = `Turlardan biri: ${DOCUMENT_TYPES.join(', ')}`;
     if (Object.keys(errors).length) throw new FieldValidationError(errors);
 
-    const page = Math.max(1, Number.parseInt(query.sahifa ?? '', 10) || 1);
+    // clamped so that skip stays a safe integer for Prisma (huge values returned 500)
+    const page = Math.min(MAX_PAGE, Math.max(1, Number.parseInt(query.sahifa ?? '', 10) || 1));
     const pageSize = Math.min(100, Math.max(1, Number.parseInt(query.hajm ?? '', 10) || 20));
     const where: Prisma.ApplicationWhereInput = {
       status,

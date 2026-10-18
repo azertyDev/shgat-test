@@ -36,7 +36,10 @@ function setup(overrides: Partial<typeof application> = {}) {
       findUnique: vi.fn(async ({ where }: any) => (where.id === 1 ? { ...application, ...overrides } : null)),
       update: vi.fn(async () => ({})),
       updateMany: vi.fn(async () => ({ count: 1 })),
+      findMany: vi.fn(async () => []),
+      count: vi.fn(async () => 0),
     },
+    $transaction: vi.fn(async (ops: Promise<unknown>[]) => Promise.all(ops)),
     applicationFile: {
       findUnique: vi.fn(async () => ({ kind: 'MAIN_DRAWING', storagePath: '999/missing.pdf', mimeType: 'application/pdf' })),
     },
@@ -183,6 +186,14 @@ describe('ApplicationsService.create validation', () => {
 });
 
 describe('ApplicationsService.list validation', () => {
+  it('clamps a huge page number so skip stays a safe integer', async () => {
+    const { service, prisma } = setup();
+    await service.list({ sahifa: '99999999999999999999', hajm: '20' });
+    const { skip } = (prisma.application.findMany.mock.calls[0] as unknown as [{ skip: number }])[0];
+    expect(Number.isSafeInteger(skip)).toBe(true);
+    expect(skip).toBe((1_000_000 - 1) * 20);
+  });
+
   it.each(['toString', 'constructor', 'SUBMITTED'])('rejects status filter %s with 422', async (holat) => {
     expect((await httpError(setup().service.list({ holat }))).status).toBe(422);
   });

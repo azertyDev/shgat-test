@@ -4,7 +4,6 @@ import {
   Get,
   HttpCode,
   Param,
-  ParseIntPipe,
   Post,
   Put,
   Query,
@@ -19,6 +18,7 @@ import type { Response } from 'express';
 import { createReadStream } from 'node:fs';
 import { ALL_ROLES, Role } from '../common/auth/role.enum.js';
 import { Roles } from '../common/auth/roles.decorator.js';
+import { ParseIdPipe } from '../common/pipes/parse-id.pipe.js';
 import { API_STATUSES } from './api-contract.js';
 import { ApplicationsService, type UploadedFileMap } from './applications.service.js';
 import { UPLOAD_FIELDS } from './api-contract.js';
@@ -81,7 +81,7 @@ export class ApplicationsController {
 
   @Get(':id')
   @Roles(ALL_ROLES)
-  findOne(@Param('id', ParseIntPipe) id: number) {
+  findOne(@Param('id', ParseIdPipe) id: number) {
     return this.applications.findOne(id);
   }
 
@@ -90,14 +90,14 @@ export class ApplicationsController {
   @UseInterceptors(uploadInterceptor)
   @ApiConsumes('multipart/form-data')
   @ApiBody(multipartBody(false))
-  resubmit(@Param('id', ParseIntPipe) id: number, @Body('data') data: string, @UploadedFiles() files: UploadedFileMap = {}) {
+  resubmit(@Param('id', ParseIdPipe) id: number, @Body('data') data: string, @UploadedFiles() files: UploadedFileMap = {}) {
     return this.applications.resubmit(id, data, files);
   }
 
   @Post(':id/tasdiqlash')
   @HttpCode(200)
   @Roles([Role.REVIEWER])
-  approve(@Param('id', ParseIntPipe) id: number) {
+  approve(@Param('id', ParseIdPipe) id: number) {
     return this.applications.approve(id);
   }
 
@@ -105,14 +105,14 @@ export class ApplicationsController {
   @HttpCode(200)
   @Roles([Role.REVIEWER])
   @ApiBody({ schema: { type: 'object', required: ['sabab'], properties: { sabab: { type: 'string' } } } })
-  returnToApplicant(@Param('id', ParseIntPipe) id: number, @Body() body: unknown) {
+  returnToApplicant(@Param('id', ParseIdPipe) id: number, @Body() body: unknown) {
     return this.applications.returnToApplicant(id, body);
   }
 
   /** Opened as a plain browser link, so no X-Rol header is required. */
   @Get(':id/fayllar/:tur')
   async download(
-    @Param('id', ParseIntPipe) id: number,
+    @Param('id', ParseIdPipe) id: number,
     @Param('tur') field: string,
     @Res({ passthrough: true }) res: Response,
   ) {
