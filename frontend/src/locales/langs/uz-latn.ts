@@ -20,6 +20,8 @@ export const uzLatn = {
     overdue: "Muddat o'tgan",
     rowsPerPage: 'Sahifada',
     allTypes: 'Barcha turlar',
+    region: 'Hudud',
+    allRegions: 'Barcha hududlar',
     sending: 'Yuborilmoqda…',
     until: '{{date}} gacha',
     reviewerHint: "Yuborilgan arizalarni ko'rib chiqing: tasdiqlang yoki sababini yozib qaytaring.",

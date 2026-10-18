@@ -6,6 +6,8 @@ import { DOCUMENT_TYPES, APPLICATION_STATUSES } from './types';
 export const listSearchSchema = z.object({
   status: z.enum(APPLICATION_STATUSES).optional().catch(undefined),
   type: z.enum(DOCUMENT_TYPES).optional().catch(undefined),
+  /** 7-digit SOATO code of the region (soato_kodi on the wire); a number, so the URL stays ?region=1703401 */
+  region: z.coerce.number().int().min(1_000_000).max(9_999_999).optional().catch(undefined),
   page: z.coerce.number().int().min(1).optional().catch(undefined),
   pageSize: z.coerce.number().int().min(5).max(100).optional().catch(undefined),
 });

@@ -27,9 +27,9 @@ import { EmptyContent } from 'src/components/empty-content';
 import { today } from '../form-schema';
 import { useRole } from '../role-store';
 import { isOptimistic } from '../optimistic';
-import { applicationListQuery } from '../queries';
 import { MONO_FONT, OVERDUE_COLOR } from '../styles';
 import { StatusLabel } from '../components/status-label';
+import { soatoQuery, applicationListQuery } from '../queries';
 import { DOCUMENT_TYPES, APPLICATION_STATUSES } from '../types';
 import { applyListFilter, DEFAULT_PAGE_SIZE } from '../list-search';
 import { ApplicationsOverviewMap } from '../components/applications-overview-map';
@@ -126,10 +126,12 @@ export function ApplicationListView({ search }: { search: ListSearch }) {
   const todayInTashkent = today();
 
   const { data, isFetching, isError, error } = useQuery(
-    applicationListQuery({ status: search.status, documentType: search.type, page, pageSize })
+    applicationListQuery({ status: search.status, documentType: search.type, soatoCode: search.region?.toString(), page, pageSize })
   );
 
   const setFilter = (patch: Partial<ListSearch>) => navigate({ search: (prev) => applyListFilter(prev, patch) });
+  const regions = useQuery(soatoQuery);
+  const filterSx = { flex: { xs: 1, sm: 'none' }, width: { sm: 180 }, minWidth: 0 };
   const subtitle = isReviewer ? t('list.reviewerHint') : t('list.applicantHint');
 
   return (
@@ -142,7 +144,7 @@ export function ApplicationListView({ search }: { search: ListSearch }) {
             </Typography>
             <Typography sx={{ mt: 0.25, color: 'text.secondary', fontSize: 14, minHeight: 21 }}>{subtitle}</Typography>
           </Box>
-          <Stack direction="row" spacing={1.5} sx={{ alignItems: 'center', flexShrink: 0 }}>
+          <Stack direction="row" sx={{ alignItems: 'center', gap: 1.5, width: { xs: 1, sm: 'auto' } }}>
             <TextField
               select
               size="small"
@@ -150,12 +152,28 @@ export function ApplicationListView({ search }: { search: ListSearch }) {
               value={search.type ?? ''}
               onChange={(e) => setFilter({ type: (e.target.value || undefined) as ListSearch['type'] })}
               slotProps={{ select: { displayEmpty: true }, inputLabel: { shrink: true } }}
-              sx={{ width: 170 }}
+              sx={filterSx}
             >
               <MenuItem value="">{t('list.allTypes')}</MenuItem>
               {DOCUMENT_TYPES.map((type) => (
                 <MenuItem key={type} value={type} sx={{ fontFamily: MONO_FONT }}>
                   {type}
+                </MenuItem>
+              ))}
+            </TextField>
+            <TextField
+              select
+              size="small"
+              label={t('list.region')}
+              value={search.region?.toString() ?? ''}
+              onChange={(e) => setFilter({ region: e.target.value ? Number(e.target.value) : undefined })}
+              slotProps={{ select: { displayEmpty: true }, inputLabel: { shrink: true } }}
+              sx={filterSx}
+            >
+              <MenuItem value="">{t('list.allRegions')}</MenuItem>
+              {regions.data?.map((r) => (
+                <MenuItem key={r.code} value={r.code}>
+                  {localize(r.name)}
                 </MenuItem>
               ))}
             </TextField>

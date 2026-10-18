@@ -2,18 +2,28 @@ import { applyListFilter, listSearchSchema } from './list-search';
 
 describe('list URL search', () => {
   it('parses valid filters and coerces numbers from the URL', () => {
-    expect(listSearchSchema.parse({ status: 'REGISTERED', type: 'БР', page: '3', pageSize: '25' })).toEqual({
+    expect(
+      listSearchSchema.parse({ status: 'REGISTERED', type: 'БР', region: '1703401', page: '3', pageSize: '25' })
+    ).toEqual({
       status: 'REGISTERED',
       type: 'БР',
+      region: 1703401,
       page: 3,
       pageSize: 25,
     });
   });
 
+  it('keeps the region as a 7-digit number', () => {
+    expect(listSearchSchema.parse({ region: '1703401' }).region).toBe(1703401);
+  });
+
   it('drops invalid values instead of failing the route', () => {
-    expect(listSearchSchema.parse({ status: 'yuborilgan', type: 'XX', page: '0', pageSize: '1000' })).toEqual({
+    expect(
+      listSearchSchema.parse({ status: 'yuborilgan', type: 'XX', region: '17', page: '0', pageSize: '1000' })
+    ).toEqual({
       status: undefined,
       type: undefined,
+      region: undefined,
       page: undefined,
       pageSize: undefined,
     });
