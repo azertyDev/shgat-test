@@ -11,6 +11,8 @@ services:
       - "5432:5432"
     volumes:
       - pgdata:/var/lib/postgresql/data
+      # PostGIS comes from the Prisma migration (schema "postgis"), not from the image's init script
+      - ./backend/prisma/postgis-initdb.sh:/docker-entrypoint-initdb.d/10_postgis.sh:ro
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U shgat"]
       interval: 3s
