@@ -1,5 +1,5 @@
 import { Injectable } from '@nestjs/common';
-import { mkdir, rm, writeFile } from 'node:fs/promises';
+import { access, mkdir, rm, writeFile } from 'node:fs/promises';
 import { dirname, join, resolve } from 'node:path';
 
 /** Local disk storage for uploaded documents. Paths are relative to UPLOAD_DIR and never come from the user. */
@@ -15,6 +15,13 @@ export class FileStorageService {
 
   async remove(relativePath: string): Promise<void> {
     await rm(this.absolutePath(relativePath), { force: true });
+  }
+
+  async exists(relativePath: string): Promise<boolean> {
+    return access(this.absolutePath(relativePath)).then(
+      () => true,
+      () => false,
+    );
   }
 
   absolutePath(relativePath: string): string {

@@ -160,7 +160,8 @@ export class ApplicationsService {
           where: { applicationId_kind: { applicationId: id, kind: FIELD_TO_FILE_KIND[field] } },
         })
       : null;
-    if (!file) throw apiError(HttpStatus.NOT_FOUND, 'Fayl topilmadi');
+    // the row may outlive the file (lost volume, manual cleanup): answer 404, not a raw ENOENT
+    if (!file || !(await this.storage.exists(file.storagePath))) throw apiError(HttpStatus.NOT_FOUND, 'Fayl topilmadi');
     return { ...file, absolutePath: this.storage.absolutePath(file.storagePath) };
   }
 

@@ -37,6 +37,9 @@ function setup(overrides: Partial<typeof application> = {}) {
       update: vi.fn(async () => ({})),
       updateMany: vi.fn(async () => ({ count: 1 })),
     },
+    applicationFile: {
+      findUnique: vi.fn(async () => ({ kind: 'MAIN_DRAWING', storagePath: '999/missing.pdf', mimeType: 'application/pdf' })),
+    },
   };
   const arcgis = { addFeature: vi.fn(async () => 555) };
   const service = new ApplicationsService(
@@ -182,5 +185,17 @@ describe('ApplicationsService.create validation', () => {
 describe('ApplicationsService.list validation', () => {
   it.each(['toString', 'constructor', 'SUBMITTED'])('rejects status filter %s with 422', async (holat) => {
     expect((await httpError(setup().service.list({ holat }))).status).toBe(422);
+  });
+});
+
+describe('ApplicationsService.getFile', () => {
+  it('returns 404 when the stored file is missing on disk', async () => {
+    const error = await httpError(setup().service.getFile(1, 'asosiy_chizma'));
+    expect(error.status).toBe(404);
+    expect(error.body).toEqual({ xato: 'Fayl topilmadi' });
+  });
+
+  it('returns 404 for an unknown file field', async () => {
+    expect((await httpError(setup().service.getFile(1, 'boshqa'))).status).toBe(404);
   });
 });
