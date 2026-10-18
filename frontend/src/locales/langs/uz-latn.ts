@@ -22,8 +22,7 @@ export const uzLatn = {
     allTypes: 'Barcha turlar',
     sending: 'Yuborilmoqda…',
     until: '{{date}} gacha',
-    pending: "{{count}} ta ariza ko'rib chiqishni kutmoqda.",
-    pendingOverdue: "{{count}} ta ariza ko'rib chiqishni kutmoqda, {{overdue}} tasining muddati o'tgan.",
+    reviewerHint: "Yuborilgan arizalarni ko'rib chiqing: tasdiqlang yoki sababini yozib qaytaring.",
     applicantHint: 'Yuborilgan arizalar va ularning holati.',
     byStatus: "Holat bo'yicha",
     columns: {

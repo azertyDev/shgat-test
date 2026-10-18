@@ -27,11 +27,11 @@ import { EmptyContent } from 'src/components/empty-content';
 import { today } from '../form-schema';
 import { useRole } from '../role-store';
 import { isOptimistic } from '../optimistic';
+import { applicationListQuery } from '../queries';
 import { MONO_FONT, OVERDUE_COLOR } from '../styles';
 import { StatusLabel } from '../components/status-label';
 import { DOCUMENT_TYPES, APPLICATION_STATUSES } from '../types';
 import { applyListFilter, DEFAULT_PAGE_SIZE } from '../list-search';
-import { pendingReviewQuery, applicationListQuery } from '../queries';
 import { ApplicationsOverviewMap } from '../components/applications-overview-map';
 
 // ----------------------------------------------------------------------
@@ -128,16 +128,9 @@ export function ApplicationListView({ search }: { search: ListSearch }) {
   const { data, isFetching, isError, error } = useQuery(
     applicationListQuery({ status: search.status, documentType: search.type, page, pageSize })
   );
-  const pending = useQuery({ ...pendingReviewQuery, enabled: isReviewer });
 
   const setFilter = (patch: Partial<ListSearch>) => navigate({ search: (prev) => applyListFilter(prev, patch) });
-  const overdueCount = pending.data?.items.filter((a) => isOverdue(a, todayInTashkent)).length ?? 0;
-  const subtitle = !isReviewer
-    ? t('list.applicantHint')
-    : pending.data &&
-      (overdueCount
-        ? t('list.pendingOverdue', { count: pending.data.total, overdue: overdueCount })
-        : t('list.pending', { count: pending.data.total }));
+  const subtitle = isReviewer ? t('list.reviewerHint') : t('list.applicantHint');
 
   return (
     <Stack sx={{ flex: 1, minHeight: 0 }}>

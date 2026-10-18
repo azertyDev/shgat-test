@@ -17,9 +17,6 @@ export const applicationKeys = {
 export const applicationListQuery = (q: ListQuery) =>
   queryOptions({ queryKey: applicationKeys.list(q), queryFn: () => api.list(q), placeholderData: keepPreviousData });
 
-/** every application waiting for review (sidebar counter, overdue count); 100 is the API page limit */
-export const pendingReviewQuery = applicationListQuery({ status: 'SUBMITTED', pageSize: 100 });
-
 export const applicationQuery = (id: number) =>
   queryOptions({ queryKey: applicationKeys.detail(id), queryFn: () => api.get(id) });
 

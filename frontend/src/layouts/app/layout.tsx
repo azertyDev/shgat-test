@@ -2,7 +2,6 @@ import type { LangCode } from 'src/locales';
 import type { Role } from 'src/sections/application/types';
 
 import { useState } from 'react';
-import { useQuery } from '@tanstack/react-query';
 import { Link, useRouterState } from '@tanstack/react-router';
 
 import Box from '@mui/material/Box';
@@ -16,9 +15,8 @@ import { allLangs, useTranslate } from 'src/locales';
 
 import { Iconify } from 'src/components/iconify';
 
-import { pendingReviewQuery } from 'src/sections/application/queries';
+import { NAVY, PAGE_BG } from 'src/sections/application/styles';
 import { setRole, useRole } from 'src/sections/application/role-store';
-import { NAVY, PAGE_BG, MONO_FONT } from 'src/sections/application/styles';
 
 // ----------------------------------------------------------------------
 
@@ -65,7 +63,6 @@ function Sidebar({ onNavigate }: { onNavigate?: () => void }) {
   const { t } = useTranslate();
   const role = useRole();
   const pathname = useRouterState({ select: (s) => s.location.pathname });
-  const pending = useQuery({ ...pendingReviewQuery, enabled: role === 'REVIEWER' });
   const isNew = pathname === '/applications/new';
 
   const linkSx = {
@@ -97,14 +94,6 @@ function Sidebar({ onNavigate }: { onNavigate?: () => void }) {
       <Stack component="nav" aria-label={t('nav.sections')} spacing={0.5}>
         <Box component={Link} to="/" onClick={onNavigate} aria-current={isNew ? undefined : 'page'} sx={linkSx}>
           {t('nav.applications')}
-          {!!pending.data?.total && (
-            <Box
-              component="span"
-              sx={{ px: 0.875, borderRadius: 2.5, bgcolor: '#F2B544', color: NAVY.main, fontFamily: MONO_FONT, fontSize: 12, fontWeight: 500 }}
-            >
-              {pending.data.total}
-            </Box>
-          )}
         </Box>
         {role === 'APPLICANT' && (
           <Box component={Link} to="/applications/new" onClick={onNavigate} aria-current={isNew ? 'page' : undefined} sx={linkSx}>
