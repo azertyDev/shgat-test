@@ -31,6 +31,7 @@ import { DOCUMENT_TYPES } from './domain/document-types.js';
 import { SoatoService } from '../soato/soato.service.js';
 import { ArcgisError, ArcgisService } from '../arcgis/arcgis.service.js';
 import { toEsriPolygon } from '../geo/esri-geometry.js';
+import { buildFeatureDescription } from './domain/feature-description.js';
 import { buildRegistrationNumber } from './domain/registration-number.js';
 import { GeometryValidator } from '../geo/geometry-validator.service.js';
 import { FileStorageService } from '../storage/file-storage.service.js';
@@ -51,7 +52,6 @@ interface StoredUpload {
   size: number;
 }
 
-const DESCRIPTION_MAX_LENGTH = 75; // length of the description field in the ArcGIS layer
 const MAX_PAGE = 1_000_000;
 const STATE_CHANGED = "Ariza holati o'zgargan, sahifani yangilang";
 
@@ -229,11 +229,10 @@ export class ApplicationsService {
 
     let objectId: number;
     try {
-      const description =
-        `${registrationNumber} | ${application.documentName}`.slice(
-          0,
-          DESCRIPTION_MAX_LENGTH,
-        );
+      const description = buildFeatureDescription(
+        registrationNumber,
+        application.documentName,
+      );
       objectId = await this.arcgis.addFeature(
         description,
         toEsriPolygon(application.boundary as never),
