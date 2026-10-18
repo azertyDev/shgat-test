@@ -32,6 +32,7 @@ import { SoatoService } from '../soato/soato.service.js';
 import { ArcgisError, ArcgisService } from '../arcgis/arcgis.service.js';
 import { toEsriPolygon } from '../geo/esri-geometry.js';
 import { buildRegistrationNumber } from './domain/registration-number.js';
+import { GeometryValidator } from '../geo/geometry-validator.service.js';
 import { FileStorageService } from '../storage/file-storage.service.js';
 import { checkUploadedFile, detectFileType } from '../storage/file-type.js';
 
@@ -67,6 +68,7 @@ export class ApplicationsService {
     private readonly arcgis: ArcgisService,
     private readonly soato: SoatoService,
     private readonly storage: FileStorageService,
+    private readonly geometry: GeometryValidator,
   ) {
     this.payloadSchema = createApplicationPayloadSchema((code) =>
       soato.exists(code),
@@ -77,6 +79,7 @@ export class ApplicationsService {
     try {
       const heads = await this.readHeads(files);
       const input = this.validate(rawData, files, heads, true);
+      await this.assertValidGeometry(input);
       // disk first, then a short database-only transaction; on failure nothing is left behind
       const uploads = await this.storeUploads(files, heads);
       try {
@@ -168,6 +171,7 @@ export class ApplicationsService {
     );
     const heads = await this.readHeads(files);
     const input = this.validate(rawData, files, heads, false);
+    await this.assertValidGeometry(input);
     const uploads = await this.storeUploads(files, heads);
     let replaced: string[];
     try {
@@ -332,6 +336,12 @@ export class ApplicationsService {
         `${message} (hozirgi holat: ${STATUS_TO_API[application.status]})`,
       );
     return application;
+  }
+
+  /** PostGIS topology check; runs only after the cheap JS rules have passed. */
+  private async assertValidGeometry(input: ApplicationInput) {
+    const error = await this.geometry.invalidReason(input.boundary);
+    if (error) throw new FieldValidationError({ chegara: error });
   }
 
   /** Multer writes uploads to disk; the signature check needs their first bytes. */

@@ -4,6 +4,7 @@ import type { PrismaService } from '../prisma/prisma.service.js';
 import { ArcgisError, type ArcgisService } from '../arcgis/arcgis.service.js';
 import { SoatoService } from '../soato/soato.service.js';
 import { FileStorageService } from '../storage/file-storage.service.js';
+import type { GeometryValidator } from '../geo/geometry-validator.service.js';
 import { ApplicationsService } from './applications.service.js';
 
 const application = {
@@ -72,6 +73,9 @@ function setup(overrides: Partial<typeof application> = {}) {
     addFeature: vi.fn(async () => 555),
     deleteFeature: vi.fn(async () => undefined),
   };
+  const geometry = {
+    invalidReason: vi.fn(async (): Promise<string | null> => null),
+  };
   const storage = {
     // multer stores uploads on disk; fake uploads carry their signature in the path name
     readHead: vi.fn(async (path: string) =>
@@ -88,8 +92,9 @@ function setup(overrides: Partial<typeof application> = {}) {
     arcgis as unknown as ArcgisService,
     new SoatoService(),
     storage as unknown as FileStorageService,
+    geometry as unknown as GeometryValidator,
   );
-  return { service, prisma, arcgis, storage };
+  return { service, prisma, arcgis, storage, geometry };
 }
 
 describe('ApplicationsService.approve', () => {
@@ -465,5 +470,68 @@ describe('ApplicationsService temporary uploads', () => {
       ).status,
     ).toBe(409);
     expect(storage.removeTemp).toHaveBeenCalledWith('tmp/9');
+  });
+});
+
+describe('ApplicationsService PostGIS geometry check', () => {
+  const pdf = () =>
+    [{ size: 10, path: `tmp/${Math.random()}`, originalname: 'a.pdf' }] as any;
+  const payload = JSON.stringify({
+    hujjat_nomi: 'Andijon shahri bosh rejasi',
+    hujjat_turi: 'БР',
+    soato_kodi: '1703401',
+    tasdiq_sanasi: '2026-03-12',
+    tasdiq_hujjati: '123-son qaror',
+    // a bow-tie: passes the JS rules, PostGIS reports a self-intersection
+    chegara: {
+      type: 'Polygon',
+      coordinates: [
+        [
+          [72.3, 40.75],
+          [72.4, 40.81],
+          [72.4, 40.75],
+          [72.3, 40.81],
+          [72.3, 40.75],
+        ],
+      ],
+    },
+  });
+
+  it('create: an invalid geometry is a 422 on chegara and nothing is stored', async () => {
+    const { service, geometry, storage, prisma } = setup();
+    geometry.invalidReason.mockResolvedValueOnce(
+      "Chegara o'zini kesib o'tadi (nuqta: 72.35 40.78)",
+    );
+    const files = {
+      asosiy_chizma: pdf(),
+      tushuntirish_xati: pdf(),
+      tasdiqlovchi_hujjat: pdf(),
+    };
+
+    const error = await httpError(service.create(payload, files));
+    expect(error.status).toBe(422);
+    expect(error.body.maydonlar).toEqual({
+      chegara: "Chegara o'zini kesib o'tadi (nuqta: 72.35 40.78)",
+    });
+    expect(storage.moveIn).not.toHaveBeenCalled();
+    expect(prisma.$transaction).not.toHaveBeenCalled();
+    expect(storage.removeTemp).toHaveBeenCalledTimes(3);
+  });
+
+  it('resubmit: the corrected boundary is checked as well', async () => {
+    const { service, geometry } = setup({ status: 'RETURNED' });
+    geometry.invalidReason.mockResolvedValueOnce('x');
+    expect((await httpError(service.resubmit(1, payload, {}))).status).toBe(
+      422,
+    );
+    expect(geometry.invalidReason).toHaveBeenCalledWith(
+      JSON.parse(payload).chegara,
+    );
+  });
+
+  it('the database is not asked when the JS rules already fail', async () => {
+    const { service, geometry } = setup();
+    await httpError(service.create('{bad', {}));
+    expect(geometry.invalidReason).not.toHaveBeenCalled();
   });
 });
