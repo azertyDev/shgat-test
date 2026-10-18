@@ -11,8 +11,10 @@ import { refreshToken } from './sections/application/role-store';
 // token for the stored role; until it arrives (or if it cannot be had) requests use X-Rol
 void refreshToken();
 
+// Data stays fresh for 30 s: switching tabs or pages reuses the cache instead of asking the server again.
+// Our own changes do not wait for it: every mutation invalidates the application queries (queries.ts).
 const queryClient = new QueryClient({
-  defaultOptions: { queries: { retry: 1, refetchOnWindowFocus: false } },
+  defaultOptions: { queries: { retry: 1, refetchOnWindowFocus: false, staleTime: 30_000 } },
 });
 
 const router = createRouter({
