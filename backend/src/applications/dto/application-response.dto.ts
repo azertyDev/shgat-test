@@ -6,25 +6,25 @@ export interface StatusDto {
   holat: ApiStatus;
 }
 
+/** Fields of the task spec (section 4.1) in its order, then the additions of docs/api.md. */
 export interface ApplicationSummaryDto {
   id: number;
-  id_raqam: string | null;
   hujjat_nomi: string;
   hujjat_turi: string;
   soato_kodi: string;
-  hudud_nomi: string | null;
-  holat: ApiStatus;
-  yuborilgan_vaqt: Date;
-  /** review deadline, only while the application waits for review */
-  muddat: string | null;
-  /** GeoJSON boundary, so that the list can be shown on a map */
+  tasdiq_sanasi: string;
+  tasdiq_hujjati: string;
   chegara: unknown;
+  id_raqam: string | null;
+  holat: ApiStatus;
+  arcgis_object_id: number | null;
+  // additions: region name, submission time and review deadline (only while it waits for review)
+  hudud_nomi: string | null;
+  yuborilgan_vaqt: Date;
+  muddat: string | null;
 }
 
 export interface ApplicationDetailsDto extends ApplicationSummaryDto {
-  tasdiq_sanasi: string;
-  tasdiq_hujjati: string;
-  arcgis_object_id: number | null;
   qaytarish_sababi: string | null;
   fayllar: {
     tur: UploadField;

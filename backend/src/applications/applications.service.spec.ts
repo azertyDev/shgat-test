@@ -346,7 +346,12 @@ describe('ApplicationsService.list validation', () => {
       hujjat_turi: 'БР',
       hudud_nomi: 'Andijon shahri',
       muddat: '2026-10-21', // Friday + 3 business days
+      // every field of the task spec model (section 4.1) is in the list item
+      tasdiq_sanasi: '2026-03-12',
+      tasdiq_hujjati: '123-son qaror',
       chegara: application.boundary,
+      id_raqam: null,
+      arcgis_object_id: null,
     });
   });
 

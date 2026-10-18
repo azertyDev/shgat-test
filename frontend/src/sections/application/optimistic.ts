@@ -17,15 +17,18 @@ export function optimisticSummary(
   if (!values.boundary) return null;
   return {
     id: -now.getTime(),
-    registrationNumber: null,
     documentName: values.documentName,
     documentType: values.documentType,
     soatoCode: values.soatoCode,
-    regionName,
+    approvalDate: values.approvalDate,
+    approvalDecree: values.approvalDecree,
+    boundary: values.boundary,
+    registrationNumber: null,
     status: 'SUBMITTED',
+    arcgisObjectId: null,
+    regionName,
     submittedAt: now.toISOString(),
     reviewDeadline: null,
-    boundary: values.boundary,
   };
 }
 

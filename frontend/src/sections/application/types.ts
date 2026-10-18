@@ -16,26 +16,27 @@ export type Boundary =
 
 export type SoatoRegion = { code: string; name: string };
 
+/** An application: the fields of the task spec (section 4.1) plus region name, submission time and deadline. */
 export type ApplicationSummary = {
   id: number;
-  registrationNumber: string | null;
   documentName: string;
   documentType: string;
   soatoCode: string;
-  regionName: string | null;
+  approvalDate: string;
+  approvalDecree: string;
+  boundary: Boundary;
+  registrationNumber: string | null;
   status: ApplicationStatus;
+  arcgisObjectId: number | null;
+  regionName: string | null;
   submittedAt: string;
   /** review deadline (YYYY-MM-DD) while the application waits for review */
   reviewDeadline: string | null;
-  boundary: Boundary;
 };
 
 export type ApplicationFile = { field: FileField; name: string; mimeType: string; size: number; url: string };
 
 export type Application = ApplicationSummary & {
-  approvalDate: string;
-  approvalDecree: string;
-  arcgisObjectId: number | null;
   returnReason: string | null;
   files: ApplicationFile[];
 };

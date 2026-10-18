@@ -56,23 +56,24 @@ const FORM_FIELD_FROM_API: Record<string, string> = invert(FORM_FIELD_TO_API);
 
 // ---- response bodies ------------------------------------------------------
 
+/** Fields of the task spec (section 4.1), then the additions of docs/api.md. */
 type SummaryDto = {
   id: number;
-  id_raqam: string | null;
   hujjat_nomi: string;
   hujjat_turi: string;
   soato_kodi: string;
-  hudud_nomi: string | null;
+  tasdiq_sanasi: string;
+  tasdiq_hujjati: string;
+  chegara: Boundary;
+  id_raqam: string | null;
   holat: ApiStatus;
+  arcgis_object_id: number | null;
+  hudud_nomi: string | null;
   yuborilgan_vaqt: string;
   muddat: string | null;
-  chegara: Boundary;
 };
 
 type DetailsDto = SummaryDto & {
-  tasdiq_sanasi: string;
-  tasdiq_hujjati: string;
-  arcgis_object_id: number | null;
   qaytarish_sababi: string | null;
   fayllar: { tur: (typeof FILE_FIELD_TO_API)[FileField]; nomi: string; mime: string; hajm: number; url: string }[];
 };
@@ -89,22 +90,22 @@ const ERROR_CODE_FROM_API: Record<string, ApiErrorCode> = { id_takrori: 'DUPLICA
 
 const fromSummaryDto = (d: SummaryDto): ApplicationSummary => ({
   id: d.id,
-  registrationNumber: d.id_raqam,
   documentName: d.hujjat_nomi,
   documentType: d.hujjat_turi,
   soatoCode: d.soato_kodi,
-  regionName: d.hudud_nomi,
+  approvalDate: d.tasdiq_sanasi,
+  approvalDecree: d.tasdiq_hujjati,
+  boundary: d.chegara,
+  registrationNumber: d.id_raqam,
   status: STATUS_FROM_API[d.holat],
+  arcgisObjectId: d.arcgis_object_id,
+  regionName: d.hudud_nomi,
   submittedAt: d.yuborilgan_vaqt,
   reviewDeadline: d.muddat,
-  boundary: d.chegara,
 });
 
 export const fromDetailsDto = (d: DetailsDto): Application => ({
   ...fromSummaryDto(d),
-  approvalDate: d.tasdiq_sanasi,
-  approvalDecree: d.tasdiq_hujjati,
-  arcgisObjectId: d.arcgis_object_id,
   returnReason: d.qaytarish_sababi,
   files: d.fayllar.map((f) => ({
     field: FILE_FIELD_FROM_API[f.tur],

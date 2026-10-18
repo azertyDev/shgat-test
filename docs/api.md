@@ -43,22 +43,31 @@ Ixtiyoriy `kod` — matnni tahlil qilmasdan aniqlash uchun mashina kodi: `id_tak
 
 Query: `holat`, `hujjat_turi`, `soato_kodi`, `sahifa` (1 dan, default 1), `hajm` (1–100, default 20).
 
+Ro'yxat elementi — ariza modeli (TZ 4.1, `fayllar`dan tashqari) va uchta qo'shimcha maydon:
+
 ```json
 {
   "items": [{
-    "id": 1, "id_raqam": null, "hujjat_nomi": "...", "hujjat_turi": "БР",
-    "soato_kodi": "1703401", "hudud_nomi": "Andijon shahri", "holat": "yuborilgan",
-    "yuborilgan_vaqt": "2026-10-18T10:00:00.000Z", "muddat": "2026-10-21",
-    "chegara": { "type": "Polygon", "coordinates": [[[72.3, 40.78], [72.36, 40.78], [72.36, 40.74], [72.3, 40.78]]] }
+    "id": 1,
+    "hujjat_nomi": "Andijon shahri bosh rejasi", "hujjat_turi": "БР", "soato_kodi": "1703401",
+    "tasdiq_sanasi": "2026-03-12", "tasdiq_hujjati": "123-son qaror",
+    "chegara": { "type": "Polygon", "coordinates": [[[72.3, 40.75], [72.4, 40.75], [72.4, 40.81], [72.3, 40.75]]] },
+    "id_raqam": null, "holat": "yuborilgan", "arcgis_object_id": null,
+    "hudud_nomi": "Andijon shahri", "yuborilgan_vaqt": "2026-10-18T10:00:00.000Z", "muddat": "2026-10-21"
   }],
   "jami": 1
 }
 ```
 
-`chegara` — xaritada ko'rsatish uchun (GeoJSON).
-`muddat` — yuborilgan kundan 3 ish kuni (shanba-yakshanbasiz), tekshiruvchi uchun.
+TZ 4.1 da yo'q, qo'shimcha maydonlar (faqat o'qish uchun, server hisoblaydi):
+
+| Maydon | Nima |
+|---|---|
+| `hudud_nomi` | SOATO kodi bo'yicha hudud nomi (`GET /api/soato` ro'yxatidan) |
+| `yuborilgan_vaqt` | ariza oxirgi marta yuborilgan vaqt (ISO 8601) |
+| `muddat` | ko'rib chiqish muddati: yuborilgan kundan 3 ish kuni (6.2), faqat `yuborilgan` holatida, aks holda `null` |
 
 ### GET /api/arizalar/{id}
 
-Ro'yxat elementi + `tasdiq_sanasi`, `tasdiq_hujjati`, `arcgis_object_id`,
-`qaytarish_sababi`, `fayllar: [{tur, nomi, mime, hajm, url}]`.
+Ro'yxat elementi + `fayllar: [{tur, nomi, mime, hajm, url}]` va qo'shimcha `qaytarish_sababi`
+(qaytarilgan arizada tekshiruvchi yozgan sabab, boshqa holatlarda `null`).
