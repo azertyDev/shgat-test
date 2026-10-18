@@ -15,7 +15,8 @@ import {
   type UploadField,
 } from './api-contract.js';
 import { toDetailsDto, toStatusDto, toSummaryDto } from './application.mapper.js';
-import { applicationPayloadSchema, DOCUMENT_TYPES, type ApplicationInput } from './application.schema.js';
+import { createApplicationPayloadSchema, DOCUMENT_TYPES, type ApplicationInput } from './application.schema.js';
+import { SoatoService } from '../soato/soato.service.js';
 import { ArcgisError, ArcgisService } from '../arcgis/arcgis.service.js';
 import { toEsriPolygon } from '../geo/esri-geometry.js';
 import { buildRegistrationNumber } from './registration-number.js';
@@ -30,11 +31,16 @@ const STATE_CHANGED = "Ariza holati o'zgargan, sahifani yangilang";
 @Injectable()
 export class ApplicationsService {
   private readonly uploadDir = resolve(process.env.UPLOAD_DIR ?? 'uploads');
+  private readonly payloadSchema: ReturnType<typeof createApplicationPayloadSchema>;
+  private readonly regionName = (code: string) => this.soato.regionName(code);
 
   constructor(
     private readonly prisma: PrismaService,
     private readonly arcgis: ArcgisService,
-  ) {}
+    private readonly soato: SoatoService,
+  ) {
+    this.payloadSchema = createApplicationPayloadSchema((code) => soato.exists(code));
+  }
 
   async create(rawData: unknown, files: UploadedFileMap) {
     const input = this.validate(rawData, files, true);
@@ -65,13 +71,13 @@ export class ApplicationsService {
       this.prisma.application.findMany({ where, orderBy: { id: 'desc' }, skip: (page - 1) * pageSize, take: pageSize }),
       this.prisma.application.count({ where }),
     ]);
-    return { items: items.map(toSummaryDto), jami: total };
+    return { items: items.map((a) => toSummaryDto(a, this.regionName)), jami: total };
   }
 
   async findOne(id: number) {
     const application = await this.prisma.application.findUnique({ where: { id }, include: { files: true } });
     if (!application) throw apiError(HttpStatus.NOT_FOUND, 'Ariza topilmadi');
-    return toDetailsDto(application);
+    return toDetailsDto(application, this.regionName);
   }
 
   /** Resubmits a returned application. Files that are not sent again are kept. */
@@ -170,7 +176,7 @@ export class ApplicationsService {
     const errors: Record<string, string> = {};
     let input: ApplicationInput | undefined;
     try {
-      const result = applicationPayloadSchema.safeParse(JSON.parse(String(rawData ?? '')));
+      const result = this.payloadSchema.safeParse(JSON.parse(String(rawData ?? '')));
       if (result.success) input = result.data;
       else for (const issue of result.error.issues) errors[String(issue.path[0] ?? 'data')] ??= issue.message;
     } catch {

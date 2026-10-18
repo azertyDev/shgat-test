@@ -1,5 +1,4 @@
 import type { Application, ApplicationFile, ApplicationStatus } from '../generated/prisma/client.js';
-import { regionName } from '../soato/soato.js';
 import {
   FILE_KIND_TO_FIELD,
   STATUS_TO_API,
@@ -13,7 +12,10 @@ const REVIEW_BUSINESS_DAYS = 3;
 
 export const toStatusDto = (id: number, status: ApplicationStatus): StatusDto => ({ id, holat: STATUS_TO_API[status] });
 
-export const toSummaryDto = (a: Application): ApplicationSummaryDto => ({
+/** Resolves a SOATO code to its region name. */
+export type RegionNameResolver = (code: string) => string | null;
+
+export const toSummaryDto = (a: Application, regionName: RegionNameResolver): ApplicationSummaryDto => ({
   id: a.id,
   id_raqam: a.registrationNumber,
   hujjat_nomi: a.documentName,
@@ -25,8 +27,11 @@ export const toSummaryDto = (a: Application): ApplicationSummaryDto => ({
   muddat: a.status === 'SUBMITTED' ? addBusinessDays(tashkentDate(a.submittedAt), REVIEW_BUSINESS_DAYS) : null,
 });
 
-export const toDetailsDto = (a: Application & { files: ApplicationFile[] }): ApplicationDetailsDto => ({
-  ...toSummaryDto(a),
+export const toDetailsDto = (
+  a: Application & { files: ApplicationFile[] },
+  regionName: RegionNameResolver,
+): ApplicationDetailsDto => ({
+  ...toSummaryDto(a, regionName),
   tasdiq_sanasi: a.approvalDate.toISOString().slice(0, 10),
   tasdiq_hujjati: a.approvalDecree,
   chegara: a.boundary,

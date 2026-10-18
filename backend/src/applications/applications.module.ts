@@ -1,11 +1,12 @@
 import { Module } from '@nestjs/common';
 import { ArcgisModule } from '../arcgis/arcgis.module.js';
-import { ApplicationsController, SoatoController } from './applications.controller.js';
+import { SoatoModule } from '../soato/soato.module.js';
+import { ApplicationsController } from './applications.controller.js';
 import { ApplicationsService } from './applications.service.js';
 
 @Module({
-  imports: [ArcgisModule],
-  controllers: [ApplicationsController, SoatoController],
+  imports: [ArcgisModule, SoatoModule],
+  controllers: [ApplicationsController],
   providers: [ApplicationsService],
 })
 export class ApplicationsModule {}

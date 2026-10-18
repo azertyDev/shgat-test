@@ -2,6 +2,7 @@ import { HttpException } from '@nestjs/common';
 import { Prisma } from '../generated/prisma/client.js';
 import type { PrismaService } from '../prisma/prisma.service.js';
 import { ArcgisError, type ArcgisService } from '../arcgis/arcgis.service.js';
+import { SoatoService } from '../soato/soato.service.js';
 import { ApplicationsService } from './applications.service.js';
 
 const application = {
@@ -37,7 +38,11 @@ function setup(overrides: Partial<typeof application> = {}) {
     },
   };
   const arcgis = { addFeature: vi.fn(async () => 555) };
-  const service = new ApplicationsService(prisma as unknown as PrismaService, arcgis as unknown as ArcgisService);
+  const service = new ApplicationsService(
+    prisma as unknown as PrismaService,
+    arcgis as unknown as ArcgisService,
+    new SoatoService(),
+  );
   return { service, prisma, arcgis };
 }
 

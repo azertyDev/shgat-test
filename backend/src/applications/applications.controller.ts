@@ -19,7 +19,6 @@ import type { Response } from 'express';
 import { createReadStream } from 'node:fs';
 import { ALL_ROLES, Role } from '../common/auth/role.enum.js';
 import { Roles } from '../common/auth/roles.decorator.js';
-import { SOATO_REGIONS } from '../soato/soato.js';
 import { API_STATUSES } from './api-contract.js';
 import { ApplicationsService, type UploadedFileMap } from './applications.service.js';
 import { UPLOAD_FIELDS } from './api-contract.js';
@@ -124,16 +123,5 @@ export class ApplicationsController {
       'X-Content-Type-Options': 'nosniff',
     });
     return new StreamableFile(createReadStream(file.absolutePath));
-  }
-}
-
-@ApiTags('soato')
-@ApiHeader({ name: 'X-Rol', enum: Role, required: true })
-@Controller('soato')
-export class SoatoController {
-  @Get()
-  @Roles(ALL_ROLES)
-  list() {
-    return SOATO_REGIONS;
   }
 }
