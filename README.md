@@ -68,8 +68,8 @@ JWT_SECRET=
 ## Testlar
 
 ```bash
-cd backend && npm test     # 102 ta: ID generatori, chegara, PostGIS tekshiruvi, proyeksiya, halqa yo'nalishi, fayllar va saqlash, muddat, ArcGIS (mock), tasdiqlash oqimi, JWT va RoleGuard
-cd frontend && npm test    # 47 ta: forma (TanStack Form), tekshiruvchi amallari (409/502), sxema, API kontrakti, rol tokeni, GeoJSON, lotin→kirill, tarjima kalitlari
+cd backend && npm test     # 105 ta: ID generatori, chegara, PostGIS tekshiruvi, proyeksiya, halqa yo'nalishi, fayllar va saqlash, muddat, ArcGIS (mock), tasdiqlash oqimi, JWT va RoleGuard
+cd frontend && npm test    # 54 ta: forma (TanStack Form), tekshiruvchi amallari (409/502), sxema, API kontrakti, rol tokeni, GeoJSON, lotin→kirill, tarjima kalitlari, optimistik yaratish, xarita kartasi joylashuvi
 ```
 
 Lint: `npm run lint` (ikkala papkada).
