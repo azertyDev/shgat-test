@@ -16,6 +16,7 @@ import { FileFieldsInterceptor } from '@nestjs/platform-express';
 import {
   ApiBody,
   ApiConsumes,
+  ApiBearerAuth,
   ApiHeader,
   ApiQuery,
   ApiTags,
@@ -25,8 +26,8 @@ import { createReadStream } from 'node:fs';
 import { randomUUID } from 'node:crypto';
 import { diskStorage } from 'multer';
 import { incomingDir } from '../storage/upload-root.js';
-import { ALL_ROLES, Role } from '../common/auth/role.enum.js';
-import { Roles } from '../common/auth/roles.decorator.js';
+import { ALL_ROLES, Role } from '../auth/role.enum.js';
+import { Roles } from '../auth/roles.decorator.js';
 import { ParseIdPipe } from '../common/pipes/parse-id.pipe.js';
 import { API_STATUSES } from './api-contract.js';
 import {
@@ -83,7 +84,13 @@ const multipartBody = (filesRequired: boolean) => ({
 });
 
 @ApiTags('arizalar')
-@ApiHeader({ name: 'X-Rol', enum: Role, required: true })
+@ApiBearerAuth()
+@ApiHeader({
+  name: 'X-Rol',
+  enum: Role,
+  required: false,
+  description: "Bearer token bo'lmasa",
+})
 @Controller('arizalar')
 export class ApplicationsController {
   constructor(private readonly applications: ApplicationsService) {}

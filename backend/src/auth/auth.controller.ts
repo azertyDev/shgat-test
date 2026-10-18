@@ -1,7 +1,7 @@
 import { Body, Controller, HttpCode, Post } from '@nestjs/common';
 import { ApiBody, ApiTags } from '@nestjs/swagger';
 import { FieldValidationError } from '../common/errors/api-error.js';
-import { ALL_ROLES } from '../common/auth/role.enum.js';
+import { ALL_ROLES } from './role.enum.js';
 import { AuthService, isRole } from './auth.service.js';
 
 @ApiTags('auth')

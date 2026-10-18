@@ -19,7 +19,8 @@ export function toWebMercator([lon, lat]: Position): Position {
 /** Shoelace formula: positive for counter-clockwise, negative for clockwise rings (y axis up). */
 export function signedArea(ring: Ring): number {
   let s = 0;
-  for (let i = 0; i < ring.length - 1; i++) s += ring[i][0] * ring[i + 1][1] - ring[i + 1][0] * ring[i][1];
+  for (let i = 0; i < ring.length - 1; i++)
+    s += ring[i][0] * ring[i + 1][1] - ring[i + 1][0] * ring[i][1];
   return s / 2;
 }
 

@@ -1,7 +1,7 @@
 import { HttpStatus, Injectable } from '@nestjs/common';
 import { JwtService } from '@nestjs/jwt';
 import { apiError } from '../common/errors/api-error.js';
-import { ALL_ROLES, Role } from '../common/auth/role.enum.js';
+import { ALL_ROLES, Role } from './role.enum.js';
 
 /** JWT payload; `rol` holds the same value as the X-Rol header. */
 export interface RoleTokenPayload {

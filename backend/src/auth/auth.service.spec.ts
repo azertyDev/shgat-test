@@ -1,6 +1,6 @@
 import { HttpException } from '@nestjs/common';
 import { JwtService } from '@nestjs/jwt';
-import { Role } from '../common/auth/role.enum.js';
+import { Role } from './role.enum.js';
 import { AuthService } from './auth.service.js';
 
 const SECRET = 'test-secret';

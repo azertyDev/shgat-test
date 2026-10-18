@@ -11,7 +11,13 @@ export const apiError = (status: HttpStatus, message: string) =>
 
 /** 422 with per-field messages; keys are wire field names. */
 export class FieldValidationError extends HttpException {
-  constructor(fields: Record<string, string>, message = "Ma'lumotlar noto'g'ri to'ldirilgan") {
-    super({ xato: message, maydonlar: fields } satisfies ApiErrorBody, HttpStatus.UNPROCESSABLE_ENTITY);
+  constructor(
+    fields: Record<string, string>,
+    message = "Ma'lumotlar noto'g'ri to'ldirilgan",
+  ) {
+    super(
+      { xato: message, maydonlar: fields } satisfies ApiErrorBody,
+      HttpStatus.UNPROCESSABLE_ENTITY,
+    );
   }
 }
