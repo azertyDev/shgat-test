@@ -1,0 +1,79 @@
+import type {
+  Application,
+  ApplicationFile,
+  ApplicationStatus,
+} from '../../generated/prisma/client.js';
+import { FILE_KIND_TO_FIELD, STATUS_TO_API } from '../api-contract.js';
+import { addBusinessDays, tashkentDate } from '../domain/business-days.js';
+import type {
+  ApplicationDetailsDto,
+  ApplicationSummaryDto,
+  ApprovalDto,
+  StatusDto,
+} from '../dto/application-response.dto.js';
+
+const REVIEW_BUSINESS_DAYS = 3;
+
+export const toStatusDto = (
+  id: number,
+  status: ApplicationStatus,
+): StatusDto => ({ id, holat: STATUS_TO_API[status] });
+
+/** Resolves a SOATO code to its region name. */
+export type RegionNameResolver = (code: string) => string | null;
+
+export const toSummaryDto = (
+  a: Application,
+  regionName: RegionNameResolver,
+): ApplicationSummaryDto => ({
+  id: a.id,
+  hujjat_nomi: a.documentName,
+  hujjat_turi: a.documentType,
+  soato_kodi: a.soatoCode,
+  tasdiq_sanasi: a.approvalDate.toISOString().slice(0, 10),
+  tasdiq_hujjati: a.approvalDecree,
+  chegara: a.boundary,
+  id_raqam: a.registrationNumber,
+  holat: STATUS_TO_API[a.status],
+  arcgis_object_id: a.arcgisObjectId,
+  hudud_nomi: regionName(a.soatoCode),
+  yuborilgan_vaqt: a.submittedAt,
+  muddat:
+    a.status === 'SUBMITTED'
+      ? addBusinessDays(tashkentDate(a.submittedAt), REVIEW_BUSINESS_DAYS)
+      : null,
+});
+
+export const toDetailsDto = (
+  a: Application & { files: ApplicationFile[] },
+  regionName: RegionNameResolver,
+): ApplicationDetailsDto => ({
+  ...toSummaryDto(a, regionName),
+  qaytarish_sababi: a.returnReason,
+  fayllar: a.files.map((f) => {
+    const field = FILE_KIND_TO_FIELD[f.kind];
+    return {
+      tur: field,
+      nomi: f.originalName,
+      mime: f.mimeType,
+      hajm: f.size,
+      url: `/api/arizalar/${a.id}/fayllar/${field}`,
+    };
+  }),
+});
+
+export const toPageDto = (
+  page: { items: Application[]; total: number },
+  regionName: RegionNameResolver,
+) => ({
+  items: page.items.map((a) => toSummaryDto(a, regionName)),
+  jami: page.total,
+});
+
+export const toApprovalDto = (a: {
+  registrationNumber: string;
+  arcgisObjectId: number;
+}): ApprovalDto => ({
+  id_raqam: a.registrationNumber,
+  arcgis_object_id: a.arcgisObjectId,
+});

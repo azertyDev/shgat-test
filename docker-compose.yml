@@ -1,0 +1,56 @@
+services:
+  db:
+    # PostgreSQL 17 + PostGIS 3.6; multi-arch builds of the postgis/docker-postgis images
+    # (postgis/postgis itself is amd64-only)
+    image: imresamu/postgis:17-3.6-alpine
+    environment:
+      POSTGRES_USER: shgat
+      POSTGRES_PASSWORD: shgat
+      POSTGRES_DB: shgat
+    ports:
+      - "5432:5432"
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+      # PostGIS comes from the Prisma migration (schema "postgis"), not from the image's init script
+      - ./backend/prisma/postgis-initdb.sh:/docker-entrypoint-initdb.d/10_postgis.sh:ro
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U shgat"]
+      interval: 3s
+      retries: 20
+
+  api:
+    build: ./backend
+    environment:
+      DATABASE_URL: postgresql://shgat:shgat@db:5432/shgat
+      ARCGIS_LAYER_URL: https://sampleserver6.arcgisonline.com/arcgis/rest/services/Wildfire/FeatureServer/2
+      UPLOAD_DIR: /app/uploads
+      # local development only: the default is public, set JWT_SECRET in the environment for anything shared
+      JWT_SECRET: ${JWT_SECRET:-local-dev-only-not-secret}
+    ports:
+      - "3000:3000"
+    volumes:
+      - uploads:/app/uploads
+    depends_on:
+      db:
+        condition: service_healthy
+    # ready once migrations ran and Nest listens (any role-protected endpoint answers 200)
+    healthcheck:
+      test: ["CMD", "node", "-e", "fetch('http://localhost:3000/api/soato',{headers:{'X-Rol':'tekshiruvchi'}}).then(r=>process.exit(r.ok?0:1),()=>process.exit(1))"]
+      interval: 3s
+      retries: 30
+
+  web:
+    build:
+      context: ./frontend
+      args:
+        # optional ArcGIS developer key from the shell or a root .env; empty -> OpenStreetMap basemap
+        VITE_ARCGIS_API_KEY: ${VITE_ARCGIS_API_KEY:-}
+    ports:
+      - "8080:80"
+    depends_on:
+      api:
+        condition: service_healthy
+
+volumes:
+  pgdata:
+  uploads:

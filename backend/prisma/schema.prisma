@@ -1,0 +1,65 @@
+datasource db {
+  provider = "postgresql"
+}
+
+generator client {
+  provider            = "prisma-client"
+  output              = "../src/generated/prisma"
+  moduleFormat        = "esm"
+  importFileExtension = "js"
+}
+
+enum ApplicationStatus {
+  SUBMITTED
+  REGISTERED
+  RETURNED
+
+  @@map("application_status")
+}
+
+enum FileKind {
+  MAIN_DRAWING
+  EXPLANATORY_NOTE
+  APPROVAL_DOCUMENT
+
+  @@map("file_kind")
+}
+
+model Application {
+  id                 Int               @id @default(autoincrement())
+  documentName       String            @map("document_name") @db.VarChar(255)
+  documentType       String            @map("document_type") @db.VarChar(8)
+  soatoCode          String            @map("soato_code") @db.Char(7)
+  approvalDate       DateTime          @map("approval_date") @db.Date
+  approvalDecree     String            @map("approval_decree") @db.VarChar(100)
+  boundary           Json
+  status             ApplicationStatus @default(SUBMITTED)
+  registrationNumber String?           @unique @map("registration_number") @db.VarChar(32)
+  arcgisObjectId     Int?              @map("arcgis_object_id")
+  /// first ArcGIS write attempt; lets a retry find a feature whose response was lost
+  arcgisAttemptAt    DateTime?         @map("arcgis_attempt_at")
+  returnReason       String?           @map("return_reason")
+  submittedAt        DateTime          @default(now()) @map("submitted_at")
+  createdAt          DateTime          @default(now()) @map("created_at")
+  updatedAt          DateTime          @updatedAt @map("updated_at")
+  files              ApplicationFile[]
+
+  @@index([status])
+  @@index([documentType])
+  @@index([soatoCode])
+  @@map("applications")
+}
+
+model ApplicationFile {
+  id            Int         @id @default(autoincrement())
+  applicationId Int         @map("application_id")
+  application   Application @relation(fields: [applicationId], references: [id], onDelete: Cascade)
+  kind          FileKind
+  originalName  String      @map("original_name")
+  mimeType      String      @map("mime_type")
+  size          Int
+  storagePath   String      @map("storage_path")
+
+  @@unique([applicationId, kind])
+  @@map("application_files")
+}
