@@ -30,6 +30,17 @@ services:
       db:
         condition: service_healthy
 
+  web:
+    build:
+      context: ./frontend
+      args:
+        # optional ArcGIS developer key from the shell or a root .env; empty -> OpenStreetMap basemap
+        VITE_ARCGIS_API_KEY: ${VITE_ARCGIS_API_KEY:-}
+    ports:
+      - "8080:80"
+    depends_on:
+      - api
+
 volumes:
   pgdata:
   uploads:
