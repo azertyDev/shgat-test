@@ -1,6 +1,6 @@
 import { HttpException } from '@nestjs/common';
 import { Prisma } from '../generated/prisma/client.js';
-import type { PrismaService } from '../prisma.service.js';
+import type { PrismaService } from '../prisma/prisma.service.js';
 import { ArcgisError, type ArcgisService } from './arcgis.service.js';
 import { ApplicationsService } from './applications.service.js';
 
