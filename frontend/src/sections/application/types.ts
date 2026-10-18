@@ -27,6 +27,7 @@ export type ApplicationSummary = {
   submittedAt: string;
   /** review deadline (YYYY-MM-DD) while the application waits for review */
   reviewDeadline: string | null;
+  boundary: Boundary;
 };
 
 export type ApplicationFile = { field: FileField; name: string; mimeType: string; size: number; url: string };
@@ -34,7 +35,6 @@ export type ApplicationFile = { field: FileField; name: string; mimeType: string
 export type Application = ApplicationSummary & {
   approvalDate: string;
   approvalDecree: string;
-  boundary: Boundary;
   arcgisObjectId: number | null;
   returnReason: string | null;
   files: ApplicationFile[];

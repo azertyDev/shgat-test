@@ -13,6 +13,8 @@ import { useTranslate } from 'src/locales';
 import { Iconify } from 'src/components/iconify';
 import { FileThumbnail } from 'src/components/file-thumbnail';
 
+import { MONO_FONT } from '../styles';
+
 // ----------------------------------------------------------------------
 
 type Props = {
@@ -39,7 +41,8 @@ export function FileUploadField({ label, value, onChange, onBlur, error, current
           p: 1.5,
           alignItems: 'center',
           borderRadius: 1,
-          border: (theme) => `1px dashed ${error ? theme.vars.palette.error.main : theme.vars.palette.divider}`,
+          border: (theme) => (error ? `1.5px dashed ${theme.vars.palette.error.main}` : '1px solid #DDE1E7'),
+          bgcolor: error ? '#FFF8F7' : 'transparent',
         }}
       >
         {shownName ? (
@@ -49,11 +52,11 @@ export function FileUploadField({ label, value, onChange, onBlur, error, current
         )}
         <Box sx={{ flexGrow: 1, minWidth: 0 }}>
           <Typography variant="subtitle2">{label}</Typography>
-          <Typography variant="caption" noWrap component="div" sx={{ color: 'text.secondary' }}>
+          <Typography variant="caption" noWrap component="div" sx={{ color: 'text.secondary', fontFamily: value ? MONO_FONT : undefined }}>
             {value ? `${value.name} · ${fData(value.size)}` : (currentName ?? t('form.fileHint'))}
           </Typography>
         </Box>
-        <Button component="label" htmlFor={id} size="small" variant="outlined">
+        <Button component="label" htmlFor={id} variant="outlined" color="inherit" sx={{ minHeight: 40, flexShrink: 0 }}>
           {t('form.chooseFile')}
         </Button>
         <input

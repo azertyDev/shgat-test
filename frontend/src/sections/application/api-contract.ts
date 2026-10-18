@@ -66,12 +66,12 @@ type SummaryDto = {
   holat: ApiStatus;
   yuborilgan_vaqt: string;
   muddat: string | null;
+  chegara: Boundary;
 };
 
 type DetailsDto = SummaryDto & {
   tasdiq_sanasi: string;
   tasdiq_hujjati: string;
-  chegara: Boundary;
   arcgis_object_id: number | null;
   qaytarish_sababi: string | null;
   fayllar: { tur: (typeof FILE_FIELD_TO_API)[FileField]; nomi: string; mime: string; hajm: number; url: string }[];
@@ -97,13 +97,13 @@ const fromSummaryDto = (d: SummaryDto): ApplicationSummary => ({
   status: STATUS_FROM_API[d.holat],
   submittedAt: d.yuborilgan_vaqt,
   reviewDeadline: d.muddat,
+  boundary: d.chegara,
 });
 
 export const fromDetailsDto = (d: DetailsDto): Application => ({
   ...fromSummaryDto(d),
   approvalDate: d.tasdiq_sanasi,
   approvalDecree: d.tasdiq_hujjati,
-  boundary: d.chegara,
   arcgisObjectId: d.arcgis_object_id,
   returnReason: d.qaytarish_sababi,
   files: d.fayllar.map((f) => ({

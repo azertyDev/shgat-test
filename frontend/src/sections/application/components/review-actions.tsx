@@ -3,16 +3,11 @@ import { useState } from 'react';
 import Alert from '@mui/material/Alert';
 import Stack from '@mui/material/Stack';
 import Button from '@mui/material/Button';
-import Dialog from '@mui/material/Dialog';
 import TextField from '@mui/material/TextField';
-import DialogTitle from '@mui/material/DialogTitle';
-import DialogActions from '@mui/material/DialogActions';
-import DialogContent from '@mui/material/DialogContent';
 
 import { useTranslate } from 'src/locales';
 
 import { toast } from 'src/components/snackbar';
-import { Iconify } from 'src/components/iconify';
 
 import { ApiError } from '../api';
 import { useApprove, useReturnToApplicant } from '../queries';
@@ -35,22 +30,23 @@ export function ReviewActions({ id }: { id: number }) {
   const errorText = useErrorText();
   const approve = useApprove(id);
   const returnMutation = useReturnToApplicant(id);
-  const [dialogOpen, setDialogOpen] = useState(false);
   const [reason, setReason] = useState('');
-  const [reasonTouched, setReasonTouched] = useState(false);
+  // the reason is only required for returning, so it is checked when "Qaytarish" is pressed
+  const [returnTried, setReturnTried] = useState(false);
 
   const approveError = approve.error ? errorText(approve.error) : null;
-  const reasonError = reasonTouched && !reason.trim() ? t('review.reasonRequired') : '';
+  const reasonError = returnTried && !reason.trim() ? t('review.reasonRequired') : '';
+  const busy = approve.isPending || returnMutation.isPending;
 
   return (
-    <Stack spacing={2}>
+    <Stack spacing={1.5}>
       {approveError && (
         <Alert
           severity="error"
           action={
             approve.error instanceof ApiError && approve.error.status === 502 ? (
               <Button color="inherit" size="small" onClick={() => approve.mutate()}>
-                {t('review.approve')}
+                {t('review.retry')}
               </Button>
             ) : undefined
           }
@@ -60,21 +56,41 @@ export function ReviewActions({ id }: { id: number }) {
         </Alert>
       )}
 
-      <Stack direction="row" spacing={1.5} sx={{ justifyContent: 'flex-end' }}>
+      <TextField
+        fullWidth
+        multiline
+        minRows={2}
+        label={t('review.reason')}
+        placeholder={t('review.reasonPlaceholder')}
+        value={reason}
+        onChange={(e) => setReason(e.target.value)}
+        error={!!reasonError}
+        helperText={reasonError || t('review.reasonHint')}
+      />
+      {returnMutation.error && <Alert severity="error">{errorText(returnMutation.error).summary}</Alert>}
+
+      <Stack direction="row" spacing={1.25}>
         <Button
+          fullWidth
           variant="outlined"
-          color="warning"
-          disabled={approve.isPending}
-          startIcon={<Iconify icon="solar:close-circle-bold" />}
-          onClick={() => setDialogOpen(true)}
+          loading={returnMutation.isPending}
+          disabled={busy}
+          sx={{ minHeight: 44, color: '#5B3BA6', borderColor: '#B9A6E6' }}
+          onClick={() => {
+            setReturnTried(true);
+            if (!reason.trim()) return;
+            returnMutation.mutate(reason.trim(), { onSuccess: () => toast.success(t('review.returned')) });
+          }}
         >
           {t('review.return')}
         </Button>
         <Button
+          fullWidth
           variant="contained"
-          color="success"
+          color="primary"
           loading={approve.isPending}
-          startIcon={<Iconify icon="solar:check-circle-bold" />}
+          disabled={busy}
+          sx={{ minHeight: 44 }}
           onClick={() =>
             approve.mutate(undefined, {
               onSuccess: (r) => toast.success(t('review.approved', { number: r.registrationNumber })),
@@ -84,52 +100,6 @@ export function ReviewActions({ id }: { id: number }) {
           {t('review.approve')}
         </Button>
       </Stack>
-
-      <Dialog open={dialogOpen} onClose={() => setDialogOpen(false)} fullWidth maxWidth="sm">
-        <DialogTitle>{t('review.return')}</DialogTitle>
-        <DialogContent>
-          <TextField
-            autoFocus
-            fullWidth
-            multiline
-            minRows={3}
-            sx={{ mt: 1 }}
-            label={t('review.reason')}
-            value={reason}
-            onChange={(e) => setReason(e.target.value)}
-            onBlur={() => setReasonTouched(true)}
-            error={!!reasonError}
-            helperText={reasonError}
-          />
-          {returnMutation.error && (
-            <Alert severity="error" sx={{ mt: 2 }}>
-              {errorText(returnMutation.error).summary}
-            </Alert>
-          )}
-        </DialogContent>
-        <DialogActions>
-          <Button color="inherit" onClick={() => setDialogOpen(false)}>
-            {t('review.cancel')}
-          </Button>
-          <Button
-            variant="contained"
-            color="warning"
-            loading={returnMutation.isPending}
-            onClick={() => {
-              setReasonTouched(true);
-              if (!reason.trim()) return;
-              returnMutation.mutate(reason.trim(), {
-                onSuccess: () => {
-                  setDialogOpen(false);
-                  toast.success(t('review.returned'));
-                },
-              });
-            }}
-          >
-            {t('review.return')}
-          </Button>
-        </DialogActions>
-      </Dialog>
     </Stack>
   );
 }

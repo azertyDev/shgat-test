@@ -12,8 +12,6 @@ import GraphicsLayer from '@arcgis/core/layers/GraphicsLayer.js';
 
 import Box from '@mui/material/Box';
 import Alert from '@mui/material/Alert';
-import Stack from '@mui/material/Stack';
-import Typography from '@mui/material/Typography';
 
 import { CONFIG } from 'src/global-config';
 import { useTranslate } from 'src/locales';
@@ -69,25 +67,40 @@ export function ApplicationMap({ application }: { application: Pick<Application,
   }, [view, layer]);
 
   return (
-    <Stack spacing={1}>
-      <Typography variant="caption" sx={{ color: 'text.secondary' }}>
+    <Box sx={{ position: 'relative', height: 1, minHeight: 300 }}>
+      <arcgis-map
+        basemap="osm"
+        center={INITIAL_VIEW.center}
+        zoom={INITIAL_VIEW.zoom}
+        style={{ height: '100%' }}
+        onarcgisViewReadyChange={(e) => {
+          if (e.target.ready) setView(e.target.view);
+        }}
+      >
+        <arcgis-zoom slot="top-right" />
+      </arcgis-map>
+      <Box
+        sx={{
+          position: 'absolute',
+          left: 16,
+          bottom: 24,
+          maxWidth: 'calc(100% - 32px)',
+          px: 1.5,
+          py: 1,
+          borderRadius: 1,
+          bgcolor: 'common.white',
+          border: '1px solid #DDE1E7',
+          fontSize: 13,
+          color: 'text.secondary',
+        }}
+      >
         {objectId !== null ? t('map.fromLayer', { id: objectId }) : t('map.fromApplication')}
-      </Typography>
-      <Box sx={{ height: { xs: 300, md: 380 }, borderRadius: 1.5, overflow: 'hidden', border: (theme) => `1px solid ${theme.vars.palette.divider}` }}>
-        <arcgis-map
-          basemap="osm"
-          center={INITIAL_VIEW.center}
-          zoom={INITIAL_VIEW.zoom}
-          style={{ height: '100%' }}
-          onarcgisViewReadyChange={(e) => {
-            if (e.target.ready) setView(e.target.view);
-          }}
-        >
-          <arcgis-zoom slot="top-left" />
-        </arcgis-map>
       </Box>
-      {mapState === 'notFound' && <Alert severity="warning">{t('map.notFound', { id: objectId })}</Alert>}
-      {mapState === 'error' && <Alert severity="error">{t('map.layerError')}</Alert>}
-    </Stack>
+      {(mapState === 'notFound' || mapState === 'error') && (
+        <Alert severity={mapState === 'notFound' ? 'warning' : 'error'} sx={{ position: 'absolute', left: 16, right: 72, top: 72 }}>
+          {mapState === 'notFound' ? t('map.notFound', { id: objectId }) : t('map.layerError')}
+        </Alert>
+      )}
+    </Box>
   );
 }

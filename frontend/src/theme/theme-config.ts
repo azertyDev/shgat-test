@@ -38,19 +38,19 @@ export const themeConfig: ThemeConfig = {
    * Typography
    *************************************** */
   fontFamily: {
-    primary: 'Public Sans Variable',
-    secondary: 'Barlow',
+    primary: 'Golos Text Variable',
+    secondary: 'Golos Text Variable',
   },
   /** **************************************
    * Palette
    *************************************** */
   palette: {
     primary: {
-      lighter: '#C8FAD6',
-      light: '#5BE49B',
-      main: '#00A76F',
-      dark: '#007867',
-      darker: '#004B50',
+      lighter: '#DCE6FA',
+      light: '#6C8FE0',
+      main: '#2456C8',
+      dark: '#1B44A0',
+      darker: '#10233B',
       contrastText: '#FFFFFF',
     },
     secondary: {

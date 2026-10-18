@@ -12,16 +12,14 @@ import GraphicsLayer from '@arcgis/core/layers/GraphicsLayer.js';
 import * as webMercatorUtils from '@arcgis/core/geometry/support/webMercatorUtils.js';
 
 import Box from '@mui/material/Box';
-import Alert from '@mui/material/Alert';
 import Stack from '@mui/material/Stack';
 import Button from '@mui/material/Button';
-import Typography from '@mui/material/Typography';
-import FormHelperText from '@mui/material/FormHelperText';
 
 import { useTranslate } from 'src/locales';
 
 import { Iconify } from 'src/components/iconify';
 
+import { NAVY } from '../styles';
 import { INITIAL_VIEW, BOUNDARY_SYMBOL } from './map-config';
 import { boundaryRings, validateBoundary, boundaryFromRings, OUTSIDE_UZBEKISTAN, boundaryFromGeoJson } from '../boundary';
 
@@ -82,13 +80,70 @@ export function BoundaryEditor({ value, onChange, error }: Props) {
 
   const boundaryError = value ? validateBoundary(value) : null;
 
+  const message =
+    fileError ||
+    (boundaryError === OUTSIDE_UZBEKISTAN ? t('map.outside') : error ? localize(error) : '') ||
+    (value ? '' : t('map.hint'));
+  const isProblem = !!fileError || !!boundaryError || !!error;
+
   return (
-    <Stack spacing={1.5}>
-      <Stack direction="row" spacing={1} sx={{ alignItems: 'center', flexWrap: 'wrap', rowGap: 1 }}>
-        <Typography variant="body2" sx={{ color: 'text.secondary', flexGrow: 1 }}>
-          {t('map.hint')}
-        </Typography>
-        <Button component="label" size="small" variant="outlined" startIcon={<Iconify icon="solar:import-bold" />}>
+    <Box
+      sx={{
+        position: 'relative',
+        height: 1,
+        minHeight: 320,
+        outline: error ? (theme) => `2px solid ${theme.vars.palette.error.main}` : 'none',
+        outlineOffset: -2,
+      }}
+    >
+      <arcgis-map
+        basemap="osm"
+        center={INITIAL_VIEW.center}
+        zoom={INITIAL_VIEW.zoom}
+        style={{ height: '100%' }}
+        onarcgisViewReadyChange={(e) => {
+          const el = e.target;
+          if (!el.ready) return;
+          viewRef.current = el.view;
+          if (!el.map?.layers.includes(layer)) el.map?.add(layer);
+          // the `layer` prop is not applied before the map exists, so it is assigned once the layer is on the map
+          if (sketchRef.current) sketchRef.current.layer = layer;
+          if (value) {
+            const ext = toPolygon(value).extent;
+            if (ext) el.view.goTo(ext.clone().expand(1.4)).catch(() => {});
+            shouldZoom.current = false;
+          }
+        }}
+      >
+        <arcgis-zoom slot="bottom-right" />
+        <arcgis-sketch
+          ref={sketchRef}
+          slot="top-right"
+          defaultGraphicsLayerDisabled
+          creationMode="single"
+          availableCreateTools={['polygon', 'rectangle']}
+          hideSelectionToolsLassoSelection
+          hideSelectionToolsRectangleSelection
+          hideSettingsMenu
+          hideDuplicateButton
+          onarcgisCreate={(e) => {
+            if (e.detail.state !== 'complete') return;
+            // a single boundary: a newly drawn one replaces the previous one
+            onChange(toBoundary(e.detail.graphic?.geometry));
+          }}
+          onarcgisUpdate={(e) => {
+            if (e.detail.state === 'complete') onChange(toBoundary(e.detail.graphics[0]?.geometry));
+          }}
+          onarcgisDelete={() => onChange(null)}
+        />
+      </arcgis-map>
+
+      <Stack
+        direction="row"
+        spacing={0.25}
+        sx={{ position: 'absolute', left: 16, top: 16, p: 0.5, bgcolor: 'common.white', border: '1px solid #C8CED8', borderRadius: 1.25 }}
+      >
+        <Button component="label" color="inherit" startIcon={<Iconify icon="solar:import-bold" />} sx={{ minHeight: 40 }}>
           {t('map.uploadGeoJson')}
           <input
             hidden
@@ -101,69 +156,33 @@ export function BoundaryEditor({ value, onChange, error }: Props) {
           />
         </Button>
         {value && (
-          <Button size="small" color="inherit" onClick={() => onChange(null)} startIcon={<Iconify icon="solar:trash-bin-trash-bold" />}>
+          <Button color="error" onClick={() => onChange(null)} startIcon={<Iconify icon="solar:trash-bin-trash-bold" />} sx={{ minHeight: 40 }}>
             {t('map.clear')}
           </Button>
         )}
       </Stack>
 
-      <Box
-        sx={{
-          height: { xs: 320, md: 420 },
-          borderRadius: 1.5,
-          overflow: 'hidden',
-          border: (theme) => `1px solid ${error ? theme.vars.palette.error.main : theme.vars.palette.divider}`,
-        }}
-      >
-        <arcgis-map
-          basemap="osm"
-          center={INITIAL_VIEW.center}
-          zoom={INITIAL_VIEW.zoom}
-          style={{ height: '100%' }}
-          onarcgisViewReadyChange={(e) => {
-            const el = e.target;
-            if (!el.ready) return;
-            viewRef.current = el.view;
-            if (!el.map?.layers.includes(layer)) el.map?.add(layer);
-            // the `layer` prop is not applied before the map exists, so it is assigned once the layer is on the map
-            if (sketchRef.current) sketchRef.current.layer = layer;
-            if (value) {
-              const ext = toPolygon(value).extent;
-              if (ext) el.view.goTo(ext.clone().expand(1.4)).catch(() => {});
-              shouldZoom.current = false;
-            }
+      {message && (
+        <Box
+          role={isProblem ? 'alert' : 'status'}
+          sx={{
+            position: 'absolute',
+            left: '50%',
+            bottom: 24,
+            transform: 'translateX(-50%)',
+            maxWidth: 'calc(100% - 32px)',
+            px: 1.75,
+            py: 1.25,
+            borderRadius: 1.25,
+            bgcolor: isProblem ? 'error.main' : NAVY.main,
+            color: 'common.white',
+            fontSize: 13,
+            textAlign: 'center',
           }}
         >
-          <arcgis-zoom slot="top-left" />
-          <arcgis-sketch
-            ref={sketchRef}
-            slot="top-right"
-            defaultGraphicsLayerDisabled
-            creationMode="single"
-            availableCreateTools={['polygon', 'rectangle']}
-            hideSelectionToolsLassoSelection
-            hideSelectionToolsRectangleSelection
-            hideSettingsMenu
-            hideDuplicateButton
-            onarcgisCreate={(e) => {
-              if (e.detail.state !== 'complete') return;
-              // a single boundary: a newly drawn one replaces the previous one
-              onChange(toBoundary(e.detail.graphic?.geometry));
-            }}
-            onarcgisUpdate={(e) => {
-              if (e.detail.state === 'complete') onChange(toBoundary(e.detail.graphics[0]?.geometry));
-            }}
-            onarcgisDelete={() => onChange(null)}
-          />
-        </arcgis-map>
-      </Box>
-
-      {fileError && <Alert severity="error">{fileError}</Alert>}
-      {boundaryError === OUTSIDE_UZBEKISTAN ? (
-        <Alert severity="warning">{t('map.outside')}</Alert>
-      ) : (
-        error && <FormHelperText error>{localize(error)}</FormHelperText>
+          {message}
+        </Box>
       )}
-    </Stack>
+    </Box>
   );
 }

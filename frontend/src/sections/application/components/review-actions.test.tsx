@@ -36,7 +36,7 @@ describe('ReviewActions', () => {
 
     const alert = await screen.findByRole('alert');
     expect(alert).toHaveTextContent(/holati o'zgarmadi/);
-    await userEvent.click(within(alert).getByRole('button', { name: 'Tasdiqlash' }));
+    await userEvent.click(within(alert).getByRole('button', { name: 'Qayta urinish' }));
     await waitFor(() => expect(fetchMock).toHaveBeenCalledTimes(2));
   });
 
@@ -45,13 +45,11 @@ describe('ReviewActions', () => {
     renderWithProviders(<ReviewActions id={3} />);
 
     await userEvent.click(screen.getByRole('button', { name: 'Qaytarish' }));
-    const dialog = await screen.findByRole('dialog');
-    await userEvent.click(within(dialog).getByRole('button', { name: 'Qaytarish' }));
-    expect(within(dialog).getByText('Sabab majburiy')).toBeInTheDocument();
+    expect(screen.getByText('Sabab majburiy')).toBeInTheDocument();
     expect(fetchMock).not.toHaveBeenCalled();
 
-    await userEvent.type(within(dialog).getByLabelText('Qaytarish sababi'), 'Chegara noaniq');
-    await userEvent.click(within(dialog).getByRole('button', { name: 'Qaytarish' }));
+    await userEvent.type(screen.getByLabelText('Qaytarish sababi'), 'Chegara noaniq');
+    await userEvent.click(screen.getByRole('button', { name: 'Qaytarish' }));
     await waitFor(() => expect(fetchMock).toHaveBeenCalledTimes(1));
     expect(JSON.parse(fetchMock.mock.calls[0][1]?.body as string)).toEqual({ sabab: 'Chegara noaniq' });
   });

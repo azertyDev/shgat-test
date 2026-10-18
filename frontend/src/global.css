@@ -1,6 +1,8 @@
 /** **************************************
 * Fonts: app
 *************************************** */
+@import '@fontsource-variable/golos-text';
+@import '@fontsource-variable/jetbrains-mono';
 @import '@fontsource-variable/public-sans';
 
 @import '@fontsource/barlow/400.css';
