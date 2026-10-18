@@ -57,13 +57,13 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
                   value={rol}
                   onChange={(_, v: Rol | null) => v && setRol(v)}
                 >
-                  <ToggleButton value="ariza_beruvchi" sx={{ px: { xs: 1, sm: 1.5 } }}>
+                  <ToggleButton value="ariza_beruvchi" aria-label={t('rol.ariza_beruvchi')} sx={{ px: { xs: 1, sm: 1.5 } }}>
                     <Iconify icon="solar:user-rounded-bold" width={18} />
                     <Box component="span" sx={{ ml: 0.75, display: { xs: 'none', md: 'inline' } }}>
                       {t('rol.ariza_beruvchi')}
                     </Box>
                   </ToggleButton>
-                  <ToggleButton value="tekshiruvchi" sx={{ px: { xs: 1, sm: 1.5 } }}>
+                  <ToggleButton value="tekshiruvchi" aria-label={t('rol.tekshiruvchi')} sx={{ px: { xs: 1, sm: 1.5 } }}>
                     <Iconify icon="solar:shield-check-bold" width={18} />
                     <Box component="span" sx={{ ml: 0.75, display: { xs: 'none', md: 'inline' } }}>
                       {t('rol.tekshiruvchi')}
