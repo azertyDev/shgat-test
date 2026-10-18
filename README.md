@@ -74,6 +74,9 @@ cd frontend && npm test    # 36 ta: forma (TanStack Form), tekshiruvchi amallari
 
 Lint: `npm run lint` (ikkala papkada).
 
+CI: `.github/workflows/ci.yml` — har push va pull request'da backend va frontend uchun `npm ci`, lint, testlar va build,
+so'ng ikkala Docker obrazi yig'iladi va `docker-compose.yml` tekshiriladi.
+
 ## Loyiha tuzilmasi
 
 Kod, baza, fayl va o'zgaruvchi nomlari — ingliz tilida. Topshiriqning API kelishuvi (yo'llar, maydonlar, holat qiymatlari,
